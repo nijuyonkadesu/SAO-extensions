@@ -24,3 +24,20 @@ The `repo` branch contains the generated public catalog and download page. Insta
 Extracted from SAO at `e1d9bf31f2175ffe803396a03951e54156b271d6`, preserving 46 relevant commits, authors and messages. The original SAO history is unchanged. `docs/history-map.txt` maps original commit IDs to filtered IDs. The extraction includes client libraries, source settings resources, third-party notices and source-specific documentation.
 
 The shared `source-api` and `source-settings` SDK remains maintained in SAO and is consumed as versioned libraries here. Credentials, installed package IDs and APK signing identities are preserved during the move.
+
+## Manual development releases
+
+Build optimized release APKs first, then prepare the signed downloads and catalog:
+
+```sh
+./gradlew :immich-extension:assembleRelease :local-extension:assembleRelease :moeview-extension:assembleRelease :findthatmeme-extension:assembleRelease
+python3 tools/release.py
+```
+
+This uses the existing Android development keystore at `~/.android/debug.keystore`. Its private key is never committed or uploaded. Output is in `build/distribution`, with Local Sticker split by ABI. Retain the original certificate for in-place updates; a different machine's default debug certificate is not interchangeable.
+
+After tests and a source commit pushed to main, `python3 tools/release.py --publish` uploads immutable per-extension prereleases with gh. A published version with different bytes is refused; increment its version instead. Then copy `build/distribution/catalog/` into a checkout of the `repo` branch and commit/push it. APKs are published before catalog pointers. No workflow/CI is required.
+
+The SDK and reference-test dependencies use Gradle's built-in Ivy descriptors to resolve public Release assets, including transitive dependencies. No custom downloader, GitHub credentials or sibling checkout is required.
+
+Migration validation: all four standalone debug and optimized release builds pass; 57 extension JVM tests and 38 Android checks pass, including native local indexing/vector lifetime, original files, idle behavior and the host's FindThatMeme settings/search flow. Lint has zero errors. Instrumentation uses synthetic media and local mock servers.

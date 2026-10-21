@@ -51,7 +51,7 @@ def prepare():
             assert fingerprint is None or fingerprint == certificate
             fingerprint = certificate
             badging = run(str(tools / "aapt2"), "dump", "badging", str(target))
-            minimum = int(re.search(r"sdkVersion:'(\d+)'", badging).group(1))
+            minimum = int(re.search(r"(?:minSdkVersion|sdkVersion):\s*'(\d+)'", badging).group(1))
             manifest = run(str(tools / "aapt2"), "dump", "xmltree", "--file", "AndroidManifest.xml", str(target))
             assert 'one.njk.sao.source.EXTENSION' in manifest and 'one.njk.sao.source.API_VERSION' in manifest
             tag = f"{ident}-v{version}-debug"
