@@ -42,7 +42,7 @@ class LocalSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity
     }
     override fun onSourceCreate(savedInstanceState: Bundle?,caller: String) {
         val binding=ActivityLocalSettingsBinding.inflate(layoutInflater); setContentView(binding.root); insets(binding.root)
-        val intake=SourceIntakeSection(this,binding.intake.root,binding.root)
+        val intake=SourceIntakeSection(this,binding.root.findViewById(R.id.intake),binding.root)
         val guard=SourceSettingsGuard(this,binding.saveLibrary,{ model.hasChanges },{ model.state.value.working },model::save)
         var populated=false; var shown: List<Folder>?=null; var renderingContext=false
         var rows=emptyList<Pair<Folder,ItemFolderBinding>>()

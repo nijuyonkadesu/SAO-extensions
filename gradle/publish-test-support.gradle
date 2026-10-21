@@ -1,0 +1,19 @@
+apply plugin: 'ivy-publish'
+group = 'one.njk.sao.extensions'
+version = '1.0.0'
+android.publishing.singleVariant('release') { withSourcesJar() }
+afterEvaluate {
+    publishing {
+        publications { testSupport(IvyPublication) { from components.release } }
+        repositories {
+            ivy {
+                name = 'TestSupport'
+                url = rootProject.layout.buildDirectory.dir('test-support')
+                patternLayout {
+                    artifact '[artifact]-[revision](-[classifier]).[ext]'
+                    ivy '[module]-[revision].ivy.xml'
+                }
+            }
+        }
+    }
+}

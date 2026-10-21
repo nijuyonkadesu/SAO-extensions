@@ -13,18 +13,18 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        ivy {
+            name = 'SaoSourceSdk'
+            url = 'https://github.com/nijuyonkadesu/SAO/releases/download/source-sdk-1.0.0'
+            patternLayout {
+                artifact '[artifact]-[revision](-[classifier]).[ext]'
+                ivy '[module]-[revision].ivy.xml'
+            }
+            metadataSources { ivyDescriptor() }
+            content { includeGroup 'one.njk.sao' }
+        }
     }
 }
-rootProject.name = "SAO"
-include ':app'
-include ':immich'
-
-include ':source-api'
-include ':source-settings'
-include ':immich-provider'
-include ':immich-extension'
-
-include ':local-extension'
-include ':moeview'
-include ':moeview-extension'
-include ':findthatmeme-extension'
+rootProject.name = 'SAO-extensions'
+include ':immich', ':immich-provider', ':immich-extension', ':local-extension'
+include ':moeview', ':moeview-extension', ':findthatmeme-extension'

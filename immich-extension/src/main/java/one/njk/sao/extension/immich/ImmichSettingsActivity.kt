@@ -25,7 +25,7 @@ class ImmichSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivit
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view,insets ->
             val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()); view.setPadding(bars.left,bars.top,bars.right,bars.bottom); insets
         }
-        val intake=SourceIntakeSection(this,binding.intake.root,binding.root)
+        val intake=SourceIntakeSection(this,binding.root.findViewById(R.id.intake),binding.root)
         val guard=SourceSettingsGuard(this,binding.saveConnection,{ model.hasChanges },{ model.state.value.working }) { model.check(true) }
         var populated=false
         binding.back.setOnClickListener { guard.leave() }

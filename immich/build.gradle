@@ -22,3 +22,4 @@ dependencies {
     testImplementation libs.junit
     testImplementation libs.mockwebserver
 }
+apply from: rootProject.file('gradle/publish-test-support.gradle')

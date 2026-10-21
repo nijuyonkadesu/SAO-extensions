@@ -6,9 +6,10 @@ android {
     compileOptions { sourceCompatibility JavaVersion.VERSION_21; targetCompatibility JavaVersion.VERSION_21 }
 }
 dependencies {
-    api project(':source-api')
+    api libs.source.api
     api project(':immich')
     testImplementation libs.junit
     androidTestImplementation libs.bundles.testing
     androidTestImplementation libs.mockwebserver
 }
+apply from: rootProject.file('gradle/publish-test-support.gradle')
