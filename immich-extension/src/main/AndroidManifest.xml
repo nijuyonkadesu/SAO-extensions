@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <queries><package android:name="one.njk.sao" /><package android:name="one.njk.sao.testing" /></queries>
-    <application android:label="SAO · Immich" android:theme="@style/Theme.ImmichExtension" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@drawable/ic_extension" android:usesCleartextTraffic="true">
+    <application android:label="SAO · Immich" android:theme="@style/Theme.ImmichExtension" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@mipmap/ic_extension" android:roundIcon="@mipmap/ic_extension" android:usesCleartextTraffic="true">
         <service android:permission="one.njk.sao.permission.SOURCE_EXTENSION" android:label="Immich" android:name=".ImmichExtensionService" android:exported="true">
             <intent-filter><action android:name="one.njk.sao.source.EXTENSION" /></intent-filter>
             <meta-data android:name="one.njk.sao.source.API_VERSION" android:value="1" />

@@ -1,0 +1,9 @@
+<!-- Original SAO extension artwork. Licensed under AGPL-3.0 with this repository. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="48dp" android:height="48dp" android:viewportWidth="96" android:viewportHeight="96">
+    <path android:pathData="M29 74H24Q16 74 16 66V32Q16 24 24 24H39L46 31H72Q80 31 80 39" android:fillColor="#00000000" android:strokeColor="#000000" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M42 35H71Q80 35 80 44V64L64 80H42Q34 80 34 72V43Q34 35 42 35Z" android:fillColor="#00000000" android:strokeColor="#000000" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M64 80V70Q64 64 70 64H80" android:fillColor="#00000000" android:strokeColor="#000000" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M45.6 51a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0 -4.8 0Z" android:fillColor="#000000" />
+    <path android:pathData="M62.6 51a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0 -4.8 0Z" android:fillColor="#000000" />
+    <path android:pathData="M48 60Q56.5 69 65 60" android:fillColor="#00000000" android:strokeColor="#000000" android:strokeWidth="3.3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

@@ -6,9 +6,15 @@ The Local Sticker extension uses the default [Immich ONNX export](https://huggin
 
 ## Material Symbols
 
-The `ic_picker_*.xml`, `ic_floating_picker.xml` and the Immich/Local Sticker/Moeview/FindThatMeme extensions’ `ic_extension.xml` vectors are Google Material Symbols Rounded, using optical size 24, weight 400, grade 0 and fill 0. Source: [google/material-design-icons, commit 49d4db3](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/android).
+The shared `ic_picker_*.xml` and `ic_floating_picker.xml` vectors are Google Material Symbols Rounded, using optical size 24, weight 400, grade 0 and fill 0. Source: [google/material-design-icons, commit 49d4db3](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4/symbols/android).
 
 Copyright Google LLC. Licensed under the [Apache License 2.0](third_party/material-symbols/LICENSE). The vectors retain Google's path geometry; their root tint is removed and their base fill changed to black so SAO's Material component foreground roles control tinting.
+
+## Extension artwork
+
+Local Sticker (folder and peeled sticker), Moeview (stacked picture cards and a sparkle) and FindThatMeme (laughing message and search lens) use original SAO artwork, licensed under this repository’s AGPL-3.0 license. The previous shared photo-symbol placeholder is replaced.
+
+Immich’s extension icon adapts the [upstream Immich flower](third_party/immich/README.md), copyright Immich contributors, AGPL-3.0. The adaptation preserves its path shapes/colors and adds a separate companion insert badge on a light tile. The original SVG, pinned source, license and modification details are preserved in `third_party/immich`; the notice and full license are also bundled in the Immich APK under `assets/licenses/immich-logo.txt`. This independent SAO extension is not endorsed by Immich.
 
 ## Rays IPC contract
 

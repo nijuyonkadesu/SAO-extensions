@@ -10,7 +10,7 @@
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@drawable/ic_extension">
+        android:icon="@mipmap/ic_extension" android:roundIcon="@mipmap/ic_extension">
         <service
             android:name=".FindThatMemeExtensionService"
             android:permission="one.njk.sao.permission.SOURCE_EXTENSION"

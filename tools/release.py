@@ -25,6 +25,48 @@ def run(*args):
     return subprocess.check_output(args, cwd=ROOT, text=True).strip()
 
 
+def vector_svg(vector):
+    """Export the APK's small path/group vector without a second artwork source."""
+    android = "{http://schemas.android.com/apk/res/android}"
+
+    def node(element):
+        get = lambda key, default=None: element.get(android + key, default)
+        if element.tag == "group":
+            px, py = get("pivotX", "0"), get("pivotY", "0")
+            transform = (f'translate({get("translateX", "0")} {get("translateY", "0")}) '
+                         f'translate({px} {py}) rotate({get("rotation", "0")}) '
+                         f'scale({get("scaleX", "1")} {get("scaleY", "1")}) translate({-float(px)} {-float(py)})')
+            result = ET.Element("g", {"transform": transform})
+            result.extend(node(child) for child in element)
+            return result
+        if element.tag != "path":
+            raise ValueError(f"Unsupported icon vector element: {element.tag}")
+        result = ET.Element("path", {"d": get("pathData")})
+        for role in ["fill", "stroke"]:
+            color = get(role + "Color", "#000000" if role == "fill" else None)
+            if color is None:
+                continue
+            alpha = float(get(role + "Alpha", "1"))
+            if re.fullmatch(r"#[0-9a-fA-F]{8}", color):
+                alpha *= int(color[1:3], 16) / 255
+                color = "#" + color[3:]
+            if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+                raise ValueError("Catalog icons require literal RGB colors")
+            result.set(role, color)
+            if alpha != 1:
+                result.set(role + "-opacity", str(alpha))
+        for source, target in [("strokeWidth", "stroke-width"), ("strokeLineCap", "stroke-linecap"), ("strokeLineJoin", "stroke-linejoin")]:
+            if get(source) is not None:
+                result.set(target, get(source))
+        if get("fillType") == "evenOdd":
+            result.set("fill-rule", "evenodd")
+        return result
+
+    svg = ET.Element("svg", {"xmlns": "http://www.w3.org/2000/svg", "viewBox": f'0 0 {vector.get(android + "viewportWidth")} {vector.get(android + "viewportHeight")}'})
+    svg.extend(node(child) for child in vector)
+    return ET.tostring(svg, encoding="unicode") + "\n"
+
+
 def prepare():
     sdk = Path(os.environ.get("ANDROID_HOME", Path.home() / "Android/Sdk"))
     tools = sorted((sdk / "build-tools").glob("*/apksigner"), key=lambda p: tuple(int(n) for n in p.parent.name.split(".") if n.isdigit()))[-1].parent
@@ -58,9 +100,7 @@ def prepare():
             artifacts.append({"abi": abi, "url": f"https://github.com/{REPOSITORY}/releases/download/{tag}/{target.name}",
                               "sha256": hashlib.sha256(target.read_bytes()).hexdigest(), "size": target.stat().st_size})
         icon = ET.parse(ROOT / module / "src/main/res/drawable/ic_extension.xml").getroot()
-        android = "{http://schemas.android.com/apk/res/android}"
-        paths = ''.join(f'<path fill="{p.get(android + "fillColor")}" d="{p.get(android + "pathData")}"/>' for p in icon)
-        (catalog_dir / "icons" / f"{ident}.svg").write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {icon.get(android + "viewportWidth")} {icon.get(android + "viewportHeight")}">{paths}</svg>\n')
+        (catalog_dir / "icons" / f"{ident}.svg").write_text(vector_svg(icon))
         entries.append({"id": ident, "packageName": package, "name": name, "description": description,
                         "versionCode": code, "versionName": version, "apiVersion": 1, "minSdk": minimum,
                         "signerSha256": fingerprint, "channel": "development", "artifacts": artifacts,
@@ -70,11 +110,12 @@ def prepare():
     (catalog_dir / "index.json").write_text(json.dumps(catalog, indent=2) + "\n")
     (catalog_dir / "repo.json").write_text(json.dumps({"name": "SAO extensions", "schemaVersion": 1,
         "index": f"https://raw.githubusercontent.com/{REPOSITORY}/repo/index.json", "website": f"https://github.com/{REPOSITORY}"}, indent=2) + "\n")
-    cards = ''.join(f'<li><h2>{html.escape(e["name"])}</h2><p>{html.escape(e["description"])}</p><p>Version {html.escape(e["versionName"])} · Development signing</p>' +
+    cards = ''.join(f'<li><img src="icons/{e["id"]}.svg" width="72" height="72" alt=""><h2>{html.escape(e["name"])}</h2><p>{html.escape(e["description"])}</p><p>Version {html.escape(e["versionName"])} · Development signing</p>' +
                     ' '.join(f'<a href="{html.escape(a["url"], quote=True)}">Download {a["abi"]}</a>' for a in e["artifacts"]) + '</li>' for e in entries)
     (catalog_dir / "index.html").write_text('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAO extensions</title><style>body{font:1rem system-ui;max-width:52rem;margin:3rem auto;padding:0 1rem}li{margin:2rem 0}a{margin-right:1rem}</style><h1>SAO extensions</h1><p>Independent media sources for SAO. These builds use the existing development signing certificate.</p><ul>' + cards + '</ul><p><a href="https://github.com/nijuyonkadesu/SAO-extensions">Source and build instructions</a></p></html>\n')
     (catalog_dir / "README.md").write_text('# SAO extension catalog\n\nGenerated from tested, manually published APKs. Install/update supported sources inside SAO, or use the [download page](index.html). Development builds retain their existing package IDs and debug signing certificate.\n\nImplementation and publishing instructions: [main branch](https://github.com/nijuyonkadesu/SAO-extensions/tree/main).\n')
-    shutil.copyfile(ROOT / "third_party/material-symbols/LICENSE", catalog_dir / "icons/LICENSE")
+    shutil.copyfile(ROOT / "LICENSE", catalog_dir / "icons/LICENSE")
+    (catalog_dir / "icons/NOTICE.md").write_text("SAO extension artwork is distributed under AGPL-3.0. Local Sticker, Moeview and FindThatMeme use original SAO artwork. Immich adapts the upstream Immich flower with a companion insert badge. Source, modifications and attribution: https://github.com/nijuyonkadesu/SAO-extensions/tree/main/third_party/immich\n")
     return catalog
 
 
@@ -93,7 +134,7 @@ def publish(catalog):
         if "404" not in lookup.stderr:
             raise RuntimeError(lookup.stderr)
         notes = ROOT / "build/distribution" / f'{entry["id"]}-notes.md'
-        notes.write_text(f'{entry["description"]}\n\nDevelopment-signed optimized APK, built independently against Source SDK 1.0.0. Package identity and existing profiles are preserved. Manual build; CI is deferred.\n')
+        notes.write_text(f'{entry["description"]}\n\nDistinct lightweight vector artwork, adaptive Android icons and themed monochrome variants. Development-signed optimized APK, built independently against Source SDK 1.0.0. Package identity and existing profiles are preserved. Manual build; CI is deferred.\n')
         subprocess.run(["gh", "release", "create", tag, "--repo", REPOSITORY, "--target", commit, "--prerelease",
                         "--title", f'{entry["name"]} {entry["versionName"]} (development)', "--notes-file", str(notes),
                         *[str(ROOT / "build/distribution" / a["url"].rsplit('/', 1)[-1]) for a in entry["artifacts"]]], check=True)

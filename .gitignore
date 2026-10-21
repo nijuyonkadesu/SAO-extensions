@@ -23,3 +23,6 @@ local.properties
 *.apk
 *.aab
 *.dex
+
+# Python release-tool cache
+__pycache__/

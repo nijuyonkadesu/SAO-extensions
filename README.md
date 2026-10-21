@@ -2,12 +2,16 @@
 
 First-party media sources for [SAO](https://github.com/nijuyonkadesu/SAO). Each Android APK owns its profiles, credentials and source-specific work. SAO owns browsing, caching and delivery to chats.
 
-| Module | Source |
-| --- | --- |
-| immich-extension | Immich servers and named accounts |
-| local-extension | Local folders, albums, tagging, OCR and Context search |
-| moeview-extension | Supported image boards |
-| findthatmeme-extension | Public keyword/caption meme search |
+| Icon | Module | Source |
+| --- | --- | --- |
+| <img src="https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/immich.svg?v=8" width="40" alt="" /> | immich-extension | Immich servers and named accounts |
+| <img src="https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/local.svg?v=15" width="40" alt="" /> | local-extension | Local folders, albums, tagging, OCR and Context search |
+| <img src="https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/moeview.svg?v=10" width="40" alt="" /> | moeview-extension | Supported image boards |
+| <img src="https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/findthatmeme.svg?v=3" width="40" alt="" /> | findthatmeme-extension | Public keyword/caption meme search |
+
+The APK and catalog icons share one vector source; Android also receives adaptive and monochrome variants. [Artwork and attribution](THIRD_PARTY_NOTICES.md#extension-artwork). No raster assets or runtime dependencies are added to the APKs.
+
+![Extension artwork and Android themed variants](docs/source-icons.png)
 
 ## Build
 
