@@ -1,0 +1,1 @@
+SAO extension artwork is distributed under AGPL-3.0. Local Sticker, Moeview and FindThatMeme use original SAO artwork. Immich adapts the upstream Immich flower with a companion insert badge. Source, modifications and attribution: https://github.com/nijuyonkadesu/SAO-extensions/tree/main/third_party/immich
