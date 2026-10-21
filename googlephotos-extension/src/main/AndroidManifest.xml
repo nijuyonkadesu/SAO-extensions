@@ -1,0 +1,36 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <queries>
+        <package android:name="com.google.android.apps.photos" />
+        <package android:name="one.njk.sao" />
+        <package android:name="one.njk.sao.testing" />
+    </queries>
+    <application
+        android:label="@string/app_name"
+        android:theme="@style/Theme.GooglePhotosExtension"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_extension" android:roundIcon="@mipmap/ic_extension">
+        <service
+            android:name=".GooglePhotosExtensionService"
+            android:permission="one.njk.sao.permission.SOURCE_EXTENSION"
+            android:label="@string/provider_name"
+            android:exported="true">
+            <intent-filter><action android:name="one.njk.sao.source.EXTENSION" /></intent-filter>
+            <meta-data android:name="one.njk.sao.source.API_VERSION" android:value="1" />
+            <meta-data android:name="one.njk.sao.source.SETTINGS" android:value="one.njk.sao.extension.googlephotos.GooglePhotosSettingsActivity" />
+        </service>
+        <activity
+            android:name=".GooglePhotosSettingsActivity"
+            android:permission="one.njk.sao.permission.SOURCE_EXTENSION"
+            android:exported="true" />
+        <!-- Google Photos cannot hold our signature permission. Binder verifies its UID, Google certificate and one-use nonce. -->
+        <service android:name=".GooglePhotosAuthService" android:exported="true" tools:ignore="ExportedService" />
+        <provider
+            android:name=".GooglePhotosMediaProvider"
+            android:authorities="${applicationId}.media"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>

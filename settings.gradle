@@ -28,3 +28,5 @@ dependencyResolutionManagement {
 rootProject.name = 'SAO-extensions'
 include ':immich', ':immich-provider', ':immich-extension', ':local-extension'
 include ':moeview', ':moeview-extension', ':findthatmeme-extension'
+
+include ':googlephotos-extension'

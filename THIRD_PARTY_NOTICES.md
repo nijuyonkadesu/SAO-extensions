@@ -16,6 +16,12 @@ Local Sticker (folder and peeled sticker), Moeview (stacked picture cards and a 
 
 Immich’s extension icon adapts the [upstream Immich flower](third_party/immich/README.md), copyright Immich contributors, AGPL-3.0. The adaptation preserves its path shapes/colors and adds a separate companion insert badge on a light tile. The original SVG, pinned source, license and modification details are preserved in `third_party/immich`; the notice and full license are also bundled in the Immich APK under `assets/licenses/immich-logo.txt`. This independent SAO extension is not endorsed by Immich.
 
+Google Photos uses an original picture-and-cloud icon under the same license; it does not copy Google's app logo.
+
+## Google Photos protocol
+
+The Google Photos extension adapts the read-only request/response layouts of xob0t's MIT-licensed [google_photos_web_client](third_party/xob0t/README.md). The original copyright and full [MIT license](third_party/xob0t/LICENSE) are retained and bundled in the source APK. No Google APK contents or Python dependencies are distributed.
+
 ## Rays IPC contract
 
 `com/skyd/rays/api/IApiService.aidl` follows the installed-app API from [Rays Android](https://github.com/SkyD666/Rays-Android/tree/9bd92a3ff8c9b4073531fed5d01639456df9136e), copyright SkyD666 and contributors, [GNU GPL v3](third_party/rays/LICENSE). The paged method is contributed in the companion Rays fork. Only the IPC definition is included; Rays' application, database and models remain in the separately installed app. Its license is also bundled under `assets/licenses/rays.txt`.

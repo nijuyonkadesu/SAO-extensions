@@ -8,6 +8,9 @@ First-party media sources for [SAO](https://github.com/nijuyonkadesu/SAO). Each 
 | <img src="https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/local.svg?v=15" width="40" alt="" /> | local-extension | Local folders, albums, tagging, OCR and Context search |
 | <img src="https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/moeview.svg?v=10" width="40" alt="" /> | moeview-extension | Supported image boards |
 | <img src="https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/findthatmeme.svg?v=3" width="40" alt="" /> | findthatmeme-extension | Public keyword/caption meme search |
+| <img src="https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/googlephotos.svg?v=1" width="40" alt="" /> | googlephotos-extension | Experimental Google Photos source with Vector-assisted connection, Context and Text matches |
+
+[Google Photos setup and verification limits](docs/googlephotos-source.md). Enable **SAO Google Photos** for the official Photos app in Vector; Google account authentication requires live device verification. This adds no Google SDK, Python runtime or new runtime dependency, and needs no SAO host update.
 
 The APK and catalog icons share one vector source; Android also receives adaptive and monochrome variants. [Artwork and attribution](THIRD_PARTY_NOTICES.md#extension-artwork). No raster assets or runtime dependencies are added to the APKs.
 
@@ -19,6 +22,7 @@ Use JDK 21 and Android SDK 37. The Gradle wrapper downloads the versioned source
 
 ```sh
 ./gradlew :immich-extension:assembleDebug :local-extension:assembleDebug :moeview-extension:assembleDebug :findthatmeme-extension:assembleDebug
+./gradlew :googlephotos-extension:assembleDebug
 ```
 
 The `repo` branch contains the generated public catalog and download page. Installable APKs live in GitHub Releases. Each source has an independent version and release. CI is deferred; publishing is manual.
@@ -35,6 +39,7 @@ Build optimized release APKs first, then prepare the signed downloads and catalo
 
 ```sh
 ./gradlew :immich-extension:assembleRelease :local-extension:assembleRelease :moeview-extension:assembleRelease :findthatmeme-extension:assembleRelease
+./gradlew :googlephotos-extension:assembleRelease
 python3 tools/release.py
 ```
 

@@ -18,6 +18,7 @@ SOURCES = [
     ("local", "Local Sticker", "Local folders and selected media with OCR, labels and offline Context search.", "local-extension", "local-sticker"),
     ("moeview", "Moeview", "Browse supported image boards with tag search and suggestions.", "moeview-extension", "moeview-sao"),
     ("findthatmeme", "FindThatMeme", "Find public memes by keyword or caption, including GIFs and videos.", "findthatmeme-extension", "findthatmeme-sao"),
+    ("googlephotos", "Google Photos (experimental)", "Google Photos with Vector-assisted connection, Context and Text matches. Native account authentication needs device verification.", "googlephotos-extension", "googlephotos-sao"),
 ]
 
 
