@@ -40,4 +40,4 @@ adb shell am instrument -w -e publicLive true -e class one.njk.sao.extension.fin
 
 Validation on Android 15 passed **14 fixture checks and one live public-catalog check**, covering profiles/capabilities, complete query text, pagination, cursor isolation, sensitive-content continuation, exact media bytes, size limits, cancellation, cooldowns and recovery. The unchanged host discovers, browses and edits the extension in both themes; unsupported Lucky stays hidden. The signed optimized APK was separately installed, configured through SAO and used to play a real public MP4. Lint reports zero errors and the same target-SDK warning as the other target-36 extensions.
 
-[Reviewed settings, floating search and live video screenshots](screenshots/README.md#findthatmeme-extension).
+[Reviewed settings, floating search and live video screenshots](https://github.com/nijuyonkadesu/SAO/blob/49a6711d0ed37387c3bc3e7767eda97f13b1d4c1/docs/screenshots/README.md#findthatmeme-extension).

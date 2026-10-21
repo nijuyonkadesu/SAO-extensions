@@ -6,7 +6,7 @@ The Immich Retrofit/Moshi client now lives in the separately installed `:immich-
 SAO's generic `ExtensionMediaSource` talks to named extension profiles over Binder; its production
 APK contains no Immich client, configuration UI or credentials. The extension retains API negotiation
 and authenticated streaming; SAO owns request scheduling, pagination, retries, playback and media
-caching. [Installation, profiles and versioned extension contract](source-extensions.md).
+caching. [Installation, profiles and versioned extension contract](https://github.com/nijuyonkadesu/SAO/blob/49a6711d0ed37387c3bc3e7767eda97f13b1d4c1/docs/source-extensions.md).
 
 ## Sources and compatibility
 
@@ -230,7 +230,7 @@ decoding, immediate 512px WebP copy, explicit JPEG copy, unchanged GIF bytes, ca
 restoration and opening the half-hidden floating icon all passed. The server exposed zero
 native tags/albums; emoji input still found five metadata matches. Album/tag matches remain
 covered by mock-server integration tests rather than live fixtures. No remote assets were changed.
-See [live test instructions](immich-live-testing.md) for the opt-in harness and sanitized evidence.
+See [live test instructions](https://github.com/nijuyonkadesu/SAO/blob/49a6711d0ed37387c3bc3e7767eda97f13b1d4c1/docs/immich-live-testing.md) for the opt-in harness and sanitized evidence.
 
 Videos, including MP4, appear beside still images and GIFs. One focused video plays muted and
 loops using Media3 ExoPlayer; authenticated originals are downloaded into the bounded cache
@@ -255,7 +255,7 @@ memory. New searches fetch new results. Source failures never silently select an
 The host retries eligible reads at most once after 500–1000 ms jitter, respecting short numeric
 Retry-After values and surfacing longer cooldowns for manual retry. Authentication, TLS, invalid
 responses and mutations do not retry. The extension disables its own transport retries and does
-not run background polling. Full [ownership, error codes and lifecycle rules](source-extensions.md).
+not run background polling. Full [ownership, error codes and lifecycle rules](https://github.com/nijuyonkadesu/SAO/blob/49a6711d0ed37387c3bc3e7767eda97f13b1d4c1/docs/source-extensions.md).
 
 ## MP4 playback and Context parity (2026-10-10)
 
@@ -272,7 +272,7 @@ Playback waits until RecyclerView is idle, followed by a 200 ms stabilization de
 Dragging/flinging pauses GIFs and releases the video player; only the final focused card resumes.
 This avoids decoder creation on cards crossed during a fling. Unchanged badge text is assigned
 only when binding an item, avoiding repeated layout requests as focus moves. See the
-[fast-scroll regression evidence](../diagnostics/scroll-jitter/README.md).
+[fast-scroll regression evidence](https://github.com/nijuyonkadesu/SAO/blob/49a6711d0ed37387c3bc3e7767eda97f13b1d4c1/diagnostics/scroll-jitter/README.md).
 Audio tracks are disabled; buffers are capped at 8 MiB and 5 seconds.
 The player releases when focus moves, the card detaches, a source/target panel hides it, or the
 activity stops/destroys ([lifecycle guidance](https://developer.android.com/media/media3/exoplayer/hello-world)).
