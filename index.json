@@ -101,6 +101,28 @@
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/findthatmeme.svg",
       "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/findthatmeme-v1.0.2-debug"
+    },
+    {
+      "id": "googlephotos",
+      "packageName": "one.njk.sao.extension.googlephotos",
+      "name": "Google Photos (experimental)",
+      "description": "Google Photos with Vector-assisted connection, Context and Text matches. Native account authentication needs device verification.",
+      "versionCode": 1,
+      "versionName": "0.1.0",
+      "apiVersion": 1,
+      "minSdk": 30,
+      "signerSha256": "3b66442b40d2f2b5b65981f6d6ce47205f464fe46a78cb4e64377dfc5d139e50",
+      "channel": "development",
+      "artifacts": [
+        {
+          "abi": "universal",
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/googlephotos-v0.1.0-debug/googlephotos-sao.apk",
+          "sha256": "6d84873e41b82a82678ea95d9e05c7e7b8ce9ab55e337e1d725f236fb61cb23d",
+          "size": 2335250
+        }
+      ],
+      "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/googlephotos.svg",
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/googlephotos-v0.1.0-debug"
     }
   ]
 }
