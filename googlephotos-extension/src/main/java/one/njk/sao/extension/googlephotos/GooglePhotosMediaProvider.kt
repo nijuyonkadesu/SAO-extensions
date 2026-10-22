@@ -55,12 +55,20 @@ class GooglePhotosMediaProvider : ContentProvider() {
                         try {
                             stage = "validate body"
                             val body = requireNotNull(opened.response.body)
-                            val limit = if (parts[2] == "preview" && mime == "image/jpeg") 16L * 1024 * 1024 else 1024L * 1024 * 1024
+                            val limit = when {
+                                parts[2] == "playback" -> 8L * 1024 * 1024
+                                parts[2] == "preview" && mime == "image/jpeg" -> 16L * 1024 * 1024
+                                else -> 1024L * 1024 * 1024
+                            }
                             if (body.contentLength() > limit) throw ExtensionFailure("MEDIA_TOO_LARGE")
                             val input = body.source()
                             if (!input.request(12)) throw ExtensionFailure("INVALID_RESPONSE")
                             val head = input.peek().readByteArray(12)
                             if (head[0] == '<'.code.toByte()) throw ExtensionFailure("INVALID_RESPONSE")
+                            // An unavailable rendition can return a thumbnail with HTTP 200.
+                            // Do not cache it as a video or fall back to downloading the original.
+                            if (parts[2] == "playback" && !head.copyOfRange(4, 8).contentEquals(byteArrayOf(102, 116, 121, 112)))
+                                throw ExtensionFailure("UNSUPPORTED")
                             val output = ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
                             val buffer = ByteArray(32 * 1024)
                             var size = 0L

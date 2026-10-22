@@ -51,7 +51,7 @@ class GooglePhotosExtensionService : ExtensionService() {
                 val ref = records.mediaReference(row, item.asset)
                 if (ref.getString("key") != item.remote?.assetId || ref.getString("mime") != item.mimeType) throw ExtensionFailure("INVALID_RESPONSE")
                 val kind = payload.getString("kind")
-                if (kind !in setOf("preview", "raster", "original", "video")) throw ExtensionFailure("UNSUPPORTED")
+                if (kind !in setOf("preview", "raster", "original", "video", "playback")) throw ExtensionFailure("UNSUPPORTED")
                 val base = Uri.Builder().scheme("content").authority("$packageName.media").appendPath(row.id).appendPath(row.revision)
                 val prefix = base.build()
                 val uri = base.appendPath(kind).appendPath(item.asset).build()

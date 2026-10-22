@@ -34,6 +34,8 @@ class GooglePhotosDeviceTest {
     private val server = MockWebServer()
     private val created = mutableListOf<String>()
     private var search: (JSONArray) -> MockResponse? = { null }
+    private var media: (okhttp3.HttpUrl) -> MockResponse? = { null }
+    private val filenames = mutableMapOf<String, String>()
     private val requestedQueries = mutableListOf<JSONArray>()
     private val downloads = AtomicInteger()
     private val png by lazy { ByteArrayOutputStream().use { out ->
@@ -48,13 +50,13 @@ class GooglePhotosDeviceTest {
         .put("Im6cmf", "/_/PhotosUi").put("oPEP7c", "fixture@example.com") + ";</script>"
     private fun envelope(rpc: String, id: String, value: JSONArray) = ")]}'\n\n42\n" + arr(arr("wrb.fr", rpc, value.toString(), null, null, null, id)) + "\n"
     private fun json(body: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(body)
-    private fun filename(key: String) = "$key." + when (key.substringAfterLast('-').toIntOrNull()?.rem(3)) {
+    private fun filename(key: String) = filenames[key] ?: ("$key." + when (key.substringAfterLast('-').toIntOrNull()?.rem(3)) {
         1 -> "gif"; 2 -> "mp4"; else -> "png"
-    }
+    })
     private fun row(number: Int): JSONArray {
         val result = arr("key-$number", arr("https://lh3.googleusercontent.com/preview/key-$number", 200, 280),
             1_700_000_000_000L, "dedup-$number", 0, 1_700_000_000_000L + number)
-        result.put(15, JSONObject().apply { if (filename("key-$number").endsWith("mp4")) put("76647426", arr(5000)) })
+        result.put(15, JSONObject().apply { if (filename("key-$number").substringAfterLast('.') in setOf("mp4", "mkv")) put("76647426", arr(5000)) })
         return result
     }
     private fun rows(start: Int, count: Int) = JSONArray((start until start + count).map(::row))
@@ -73,8 +75,10 @@ class GooglePhotosDeviceTest {
                 if (!url.encodedPath.contains("batchexecute") && !url.encodedPath.startsWith("/preview/") && !url.encodedPath.startsWith("/original/"))
                     return MockResponse().setHeader("Content-Type", "text/html").setBody(html())
                 if (url.encodedPath.startsWith("/original/") || url.encodedPath.startsWith("/preview/")) {
+                    media(url)?.let { return it }
                     val file = url.encodedPath.substringAfterLast('/').substringBefore('=')
-                    val bytes = when (file.substringAfterLast('.')) { "gif" -> asset("hello.gif"); "mp4" -> asset("video.mp4"); else -> png }
+                    val bytes = if (url.encodedPath.endsWith("=m18")) asset("video.mp4")
+                        else when (file.substringAfterLast('.')) { "gif" -> asset("hello.gif"); "mp4" -> asset("video.mp4"); else -> png }
                     return MockResponse().setHeader("Content-Type", "application/octet-stream").setBody(Buffer().write(bytes))
                 }
                 val form = request.body.readUtf8().split('&').associate {
@@ -209,6 +213,60 @@ class GooglePhotosDeviceTest {
         }
         assertEquals(6, checked)
         assertTrue(downloads.get() >= 6)
+    }
+
+    @Test fun playbackMp4AndOriginalMkvUseIndependentVariants(): Unit = runBlocking {
+        filenames["key-2"] = "huge.mkv"
+        val row = profile(); val item = page(row).items.first { it.remote!!.assetId == "key-2" }
+        assertEquals("video/x-matroska", item.mimeType)
+        assertNotEquals(item.remote!!.cacheKeys["original"], item.remote!!.cacheKeys["playback"])
+        assertArrayEquals(asset("video.mp4"), read(uri(row, item, "playback")))
+        assertEquals(0, downloads.get())
+        val original = byteArrayOf(0x1a, 0x45, 0xdf.toByte(), 0xa3.toByte()) + ByteArray(100) { 7 }
+        media = { url -> if (url.encodedPath.startsWith("/original/")) MockResponse().setBody(Buffer().write(original)) else null }
+        assertArrayEquals(original, read(uri(row, item, "original")))
+        assertEquals(1, downloads.get())
+    }
+
+    @Test fun unavailableOrOversizedPlaybackNeverFallsBackToOriginal(): Unit = runBlocking {
+        val row = profile(); val item = page(row).items.first { it.isVideo }
+        for ((response, code) in listOf(
+            MockResponse().setResponseCode(404) to "HTTP_404",
+            MockResponse().setBody(Buffer().write(asset("video.mp4"))).setHeader("Content-Length", 8L * 1024 * 1024 + 1) to "MEDIA_TOO_LARGE",
+            MockResponse().setBody(Buffer().write(png)) to "UNSUPPORTED",
+        )) {
+            media = { response }
+            try { read(uri(row, item, "playback")); fail("Expected $code") }
+            catch (error: java.io.IOException) { assertTrue(error.message, error.message.orEmpty().contains(code)) }
+        }
+        media = { null }
+        assertArrayEquals(png, read(uri(row, item, "preview")))
+        assertEquals(0, downloads.get())
+    }
+
+    @Test fun hostCarouselRequestsPlaybackForMkvWithoutOpeningOriginalDownload(): Unit = runBlocking {
+        filenames["key-2"] = "huge.mkv"
+        search = { json(envelope("snAcKc", "sao", arr(null, arr(row(2)), null))) }
+        val playbackRequests = AtomicInteger()
+        media = { url ->
+            if (url.encodedPath.endsWith("=m18")) {
+                playbackRequests.incrementAndGet()
+                MockResponse().setBody(Buffer().write(asset("video.mp4")))
+            } else null
+        }
+        val row = profile(GooglePhotosConfig("SID=fixture-cookie", album="album-key", albumName="Playback fixture"))
+        app.startActivity(app.packageManager.getLaunchIntentForPackage("one.njk.sao")!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        waitFor("SAO home") { nodes().any { it.viewIdResourceName == "one.njk.sao:id/type" } }
+        click { it.viewIdResourceName == "one.njk.sao:id/edit" }
+        waitFor("Discovered source") { nodes().any { it.text?.toString() == row.name } }
+        click { it.text?.toString() == row.name }
+        click { it.viewIdResourceName == "one.njk.sao:id/back" }
+        waitFor("Centered MKV requests the small playback rendition") { playbackRequests.get() == 1 }
+        assertTrue(nodes().any { it.viewIdResourceName == "one.njk.sao:id/media_title" && it.text?.toString() == "huge.mkv" })
+        assertEquals(0, downloads.get())
+        // Observe the settled carousel, rather than merely a request started during navigation.
+        delay(500)
+        assertEquals(1, playbackRequests.get()); assertEquals(0, downloads.get())
     }
 
     @Test fun explicitNativeLoginConsumesOnlyTrustedGoogleRedirects(): Unit = runBlocking {

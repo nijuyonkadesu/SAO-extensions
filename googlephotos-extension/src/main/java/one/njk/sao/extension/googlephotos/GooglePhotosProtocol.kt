@@ -127,20 +127,27 @@ internal object GooglePhotosProtocol {
     fun allowedMedia(value: String): Boolean {
         val url = value.toHttpUrlOrNull() ?: return false
         return url.isHttps && url.port == 443 && url.username.isEmpty() && url.password.isEmpty() && url.fragment == null &&
-            (url.host.endsWith(".googleusercontent.com") || url.host.endsWith(".ggpht.com") ||
+            (url.host.endsWith(".googleusercontent.com") || url.host.endsWith(".ggpht.com") || url.host.endsWith(".googlevideo.com") ||
                 url.host in setOf("photos.fife.usercontent.google.com", "lh3.google.com")) && value.length <= 4096
     }
 
     fun preview(value: String): String {
+        return rendition(value, "w1600-h1600-no")
+    }
+
+    /** Google's 360p MP4 playback rendition, never the original/download URL. */
+    fun playback(value: String): String = rendition(value, "m18")
+
+    private fun rendition(value: String, parameter: String): String {
         if (!allowedMedia(value)) throw ExtensionFailure("INVALID_RESPONSE")
         val url = requireNotNull(value.toHttpUrlOrNull())
-        return url.newBuilder().encodedPath(url.encodedPath.substringBeforeLast('=', url.encodedPath) + "=w1600-h1600-no").build().toString()
+        return url.newBuilder().encodedPath(url.encodedPath.substringBeforeLast('=', url.encodedPath) + "=$parameter").build().toString()
     }
 
     fun mime(filename: String, video: Boolean): String = when (filename.substringAfterLast('.', "").lowercase()) {
         "jpg", "jpeg" -> "image/jpeg"; "png" -> "image/png"; "gif" -> "image/gif"; "webp" -> "image/webp"
         "heic", "heif" -> "image/heic"; "avif" -> "image/avif"; "mp4", "m4v" -> "video/mp4"; "mov" -> "video/quicktime"
-        "webm" -> "video/webm"; else -> if (video) "video/mp4" else "image/jpeg"
+        "webm" -> "video/webm"; "mkv" -> "video/x-matroska"; else -> if (video) "video/mp4" else "image/jpeg"
     }
     fun optionalString(array: JSONArray, index: Int) = (array.opt(index) as? String)?.takeIf(String::isNotBlank)
     fun nested(value: Any?, vararg path: Any): Any? = path.fold(value) { current, key ->

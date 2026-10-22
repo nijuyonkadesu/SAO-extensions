@@ -45,8 +45,9 @@ internal class GooglePhotosRecords(private val store: GooglePhotosProfiles) {
             val item = MediaItem("googlephotos_" + digest("$source:${row.key}"), details.filename.ifBlank { details.description.ifBlank { "Google Photos" } },
                 store.seal(ref), mime, emptyList(), emptyList(), mime in setOf("image/gif", "image/webp"),
                 RemoteMedia(source, row.key, false, row.uploaded.takeIf { it > 0 }?.let { Instant.ofEpochMilli(it).toString() },
-                    mapOf("original" to "$version:original", "raster" to "$version:original", "video" to "$version:original",
-                        "preview" to "$version:${if (mime == "image/gif" || mime == "image/webp") "original" else "preview"}")),
+                    mapOf("original" to "$version:original", "raster" to "$version:${if (mime.startsWith("video/")) "preview" else "original"}",
+                        "video" to "$version:original", "preview" to "$version:${if (mime == "image/gif" || mime == "image/webp") "original" else "preview"}") +
+                        if (mime.startsWith("video/")) mapOf("playback" to "$version:playback-m18-v1") else emptyMap()),
                 details.filename.ifBlank { null })
             val bytes = SourceWire.item(item).toString().length * 2
             if (items.isNotEmpty() && wireSize + bytes > ExtensionProtocol.MAX_RESPONSE - 40 * 1024) break
@@ -79,6 +80,10 @@ internal class GooglePhotosRecords(private val store: GooglePhotosProfiles) {
                 else GooglePhotosProtocol.preview(ref.getString("preview")) to "image/jpeg"
             "raster" -> if (mime.startsWith("video/")) GooglePhotosProtocol.preview(ref.getString("preview")) to "image/jpeg"
                 else api.download(ref.getString("key"), true) to mime
+            "playback" -> {
+                if (!mime.startsWith("video/")) throw ExtensionFailure("UNSUPPORTED")
+                GooglePhotosProtocol.playback(ref.getString("preview")) to "video/mp4"
+            }
             "original", "video" -> {
                 if (kind == "video" && !mime.startsWith("video/")) throw ExtensionFailure("UNSUPPORTED")
                 api.download(ref.getString("key"), true) to mime

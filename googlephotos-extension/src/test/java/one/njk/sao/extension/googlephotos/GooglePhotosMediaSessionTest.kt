@@ -41,7 +41,7 @@ class GooglePhotosMediaSessionTest {
                 requests += request
                 Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
                     .code(if (requests.size == 1) 302 else 200).message("fixture")
-                    .apply { if (requests.size == 1) header("Location", "https://lh3.googleusercontent.com/fixture") }
+                .apply { if (requests.size == 1) header("Location", "https://rr1.googlevideo.com/fixture") }
                     .body(bytes.toResponseBody()).build()
             }.build()
             try {
