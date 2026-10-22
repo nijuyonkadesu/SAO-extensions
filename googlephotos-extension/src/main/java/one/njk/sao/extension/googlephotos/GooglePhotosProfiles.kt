@@ -25,15 +25,20 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 data class GooglePhotosConfig(val cookies: String = "", val account: Int = 0,
-    val album: String = "", val albumName: String = "", val scopedCookies: List<Cookie> = emptyList()) {
+    val album: String = "", val albumName: String = "", val scopedCookies: List<Cookie> = emptyList(),
+    val nativeAccount: String = "", val nativeSession: String = "") {
     fun validate() {
         require(account in 0..99 && album.length <= 512 && albumName.length <= 256)
         require(album.isEmpty() || GooglePhotosProtocol.validKey(album))
         GooglePhotosCookies.validate(cookies)
         require(scopedCookies.size <= 200)
+        require(nativeAccount.isEmpty() || (nativeAccount.length in 3..320 && '@' in nativeAccount && nativeAccount.none(Char::isISOControl)))
+        require(nativeSession.isEmpty() || runCatching { UUID.fromString(nativeSession) }.isSuccess)
+        require(nativeAccount.isEmpty() == nativeSession.isEmpty())
     }
     fun json(): JSONObject = JSONObject().put("cookies", cookies).put("account", account)
-        .put("album", album).put("albumName", albumName).put("scopedCookies", JSONArray(scopedCookies.map {
+        .put("album", album).put("albumName", albumName).put("nativeAccount", nativeAccount).put("nativeSession", nativeSession)
+        .put("scopedCookies", JSONArray(scopedCookies.map {
             JSONObject().put("origin", "https://${it.domain}/").put("cookie", it.toString())
         }))
     companion object {
@@ -45,7 +50,7 @@ data class GooglePhotosConfig(val cookies: String = "", val account: Int = 0,
                     require(origin.isHttps && (origin.host == "google.com" || origin.host.endsWith(".google.com")))
                     requireNotNull(Cookie.parse(origin, it.getString("cookie")))
                 } }
-            }.orEmpty()).also { it.validate() }
+            }.orEmpty(), json.optString("nativeAccount"), json.optString("nativeSession")).also { it.validate() }
     }
 }
 
@@ -68,10 +73,14 @@ class GooglePhotosProfiles(context: Context) {
     }
     suspend fun list(): List<GooglePhotosProfile> = withContext(Dispatchers.IO) { lock.withLock { read() } }
     suspend fun get(id: String)=list().firstOrNull { it.id==id } ?: throw ExtensionFailure("PROFILE_MISSING")
-    suspend fun save(id: String,name: String,config: GooglePhotosConfig): GooglePhotosProfile = withContext(Dispatchers.IO) { lock.withLock {
+    suspend fun save(id: String,name: String,config: GooglePhotosConfig,preserveCurrentSession: Boolean = false): GooglePhotosProfile = withContext(Dispatchers.IO) { lock.withLock {
         UUID.fromString(id); require(name.isNotBlank() && name.length<=100); config.validate()
         val rows=read(); val prior=rows.firstOrNull { it.id==id }
-        val saved=GooglePhotosProfile(id,name.trim(),prior?.revision?.takeIf { prior.config==config } ?: UUID.randomUUID().toString(),config)
+        val effective=if(preserveCurrentSession && prior!=null) {
+            if(prior.config.nativeAccount!=config.nativeAccount || prior.config.account!=config.account) throw ExtensionFailure("PROFILE_CHANGED")
+            config.copy(cookies=prior.config.cookies,scopedCookies=prior.config.scopedCookies,nativeSession=prior.config.nativeSession)
+        } else config
+        val saved=GooglePhotosProfile(id,name.trim(),prior?.revision?.takeIf { prior.config==effective } ?: UUID.randomUUID().toString(),effective)
         write(rows.filterNot { it.id==id }+saved)
         if(prior!=null && prior.revision!=saved.revision) revoke(prior)
         saved
@@ -82,12 +91,26 @@ class GooglePhotosProfiles(context: Context) {
         write(rows.filterNot { it.id==id }); revoke(row)
     } }
     /** Cookie rotation is authentication maintenance, not a new source identity. */
-    suspend fun refreshCookies(id: String, revision: String, cookies: String, scopedCookies: List<Cookie>? = null) = withContext(Dispatchers.IO) { lock.withLock {
+    suspend fun refreshCookies(id: String, revision: String, cookies: String, scopedCookies: List<Cookie>? = null,
+        expectedSession: String? = null): Unit = withContext(Dispatchers.IO) { lock.withLock {
         GooglePhotosCookies.validate(cookies)
         val rows = read()
         val row = rows.firstOrNull { it.id == id && it.revision == revision } ?: throw ExtensionFailure("PROFILE_CHANGED")
+        // A late response from the previous login must not overwrite newly renewed credentials.
+        if (expectedSession != null && row.config.nativeSession != expectedSession) return@withLock
         val config = row.config.copy(cookies = cookies, scopedCookies = scopedCookies ?: row.config.scopedCookies)
         if (row.config != config) write(rows.map { if (it.id == id) it.copy(config = config) else it })
+    } }
+    suspend fun renewSession(expected: GooglePhotosProfile, fresh: GooglePhotosConfig): GooglePhotosProfile = withContext(Dispatchers.IO) { lock.withLock {
+        fresh.validate()
+        val rows=read()
+        val row=rows.firstOrNull { it.id==expected.id && it.revision==expected.revision } ?: throw ExtensionFailure("PROFILE_CHANGED")
+        if(row.config.nativeSession!=expected.config.nativeSession) return@withLock row
+        if(fresh.nativeAccount.isEmpty() || !fresh.nativeAccount.equals(row.config.nativeAccount,ignoreCase=true) || fresh.account!=0)
+            throw ExtensionFailure("HTTP_401")
+        val renewed=row.copy(config=row.config.copy(cookies=fresh.cookies,scopedCookies=fresh.scopedCookies,nativeSession=fresh.nativeSession))
+        write(rows.map { if(it.id==row.id) renewed else it })
+        renewed
     } }
     fun seal(value: JSONObject): String=Base64.encodeToString(encrypt(value.toString().toByteArray()),Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     fun open(token: String): JSONObject = try {

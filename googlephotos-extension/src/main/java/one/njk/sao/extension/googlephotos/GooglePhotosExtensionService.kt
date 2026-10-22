@@ -43,8 +43,8 @@ class GooglePhotosExtensionService : ExtensionService() {
             ExtensionProtocol.DELETE_PROFILE -> { store.delete(profile, row.revision); runtime.clearSessions(); JSONObject() }
             ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(records.capabilities(row))
             ExtensionProtocol.FILTERS -> JSONObject().put("values", JSONArray())
-            ExtensionProtocol.SEARCH -> SourceWire.page(records.page(row, payload.getString("source"),
-                SourceWire.query(payload.getJSONObject("query")), SourceWire.nullable(payload, "cursor"), runtime.api(row)))
+            ExtensionProtocol.SEARCH -> runtime.read(row) { api -> SourceWire.page(records.page(row, payload.getString("source"),
+                SourceWire.query(payload.getJSONObject("query")), SourceWire.nullable(payload, "cursor"), api)) }
             ExtensionProtocol.MEDIA -> {
                 val item = SourceWire.item(payload.getJSONObject("item"))
                 if (item.remote?.sourceId != payload.getString("source")) throw ExtensionFailure("PROFILE_CHANGED")

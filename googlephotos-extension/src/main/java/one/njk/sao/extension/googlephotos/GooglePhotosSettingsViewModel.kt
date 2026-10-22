@@ -23,8 +23,9 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
     val editing: String? = saved[ExtensionProtocol.PROFILE]
     val profile = editing ?: UUID.randomUUID().toString()
     private var previous: GooglePhotosProfile? = null
+    private var credentialsEdited = false
     val hasChanges get() = state.value.loaded && (state.value.name != (previous?.name ?: "Google Photos") ||
-        state.value.config != (previous?.config ?: GooglePhotosConfig()))
+        dirtyConfig() != (previous?.config ?: GooglePhotosConfig()))
     private var handshake: GooglePhotosConnect.Pending? = null
 
     init {
@@ -37,8 +38,17 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
         }
     }
     fun name(value: String) { if (!state.value.working) mutable.value = state.value.copy(name = value) }
+    private fun dirtyConfig(): GooglePhotosConfig {
+        val config=state.value.config
+        val baseline=previous?.config ?: GooglePhotosConfig()
+        return if(credentialsEdited) config else config.copy(cookies=baseline.cookies,scopedCookies=baseline.scopedCookies,
+            nativeAccount=baseline.nativeAccount,nativeSession=baseline.nativeSession)
+    }
     fun account(value: String) {
-        if (!state.value.working) mutable.value = state.value.copy(config = state.value.config.copy(account = value.toIntOrNull() ?: -1))
+        if (!state.value.working && value.toIntOrNull() != state.value.config.account) {
+            credentialsEdited=true
+            mutable.value = state.value.copy(config = state.value.config.copy(account = value.toIntOrNull() ?: -1, nativeAccount = "", nativeSession = ""))
+        }
     }
     fun connect(launch: (Intent) -> Unit) = work {
         val app = getApplication<Application>()
@@ -57,6 +67,7 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
             val result = withTimeout(115_000) { pending.result.await() }
             android.util.Log.i("SAO.GooglePhotos", "Native login received; exchanging web session")
             val config = GooglePhotosApi.connect(result.loginUrl, result.account, runtime.http())
+            credentialsEdited=true
             mutable.value = state.value.copy(config = config, working = false, status = R.string.connected)
             android.util.Log.i("SAO.GooglePhotos", "Web session connected")
         } finally {
@@ -80,32 +91,42 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
                 GooglePhotosCookies.parse(text) to GooglePhotosCookies.scoped(text)
             } ?: throw ExtensionFailure("INVALID_RESPONSE")
         }
-        mutable.value = state.value.copy(config = state.value.config.copy(cookies = cookies.first, scopedCookies = cookies.second), working = false, status = R.string.session_imported)
+        credentialsEdited=true
+        mutable.value = state.value.copy(config = state.value.config.copy(cookies = cookies.first, scopedCookies = cookies.second,
+            nativeAccount = "", nativeSession = ""), working = false, status = R.string.session_imported)
     }
     fun pasteSession(value: String) = work {
         val cookies = withContext(Dispatchers.IO) { GooglePhotosCookies.parse(value) to GooglePhotosCookies.scoped(value) }
-        mutable.value = state.value.copy(config = state.value.config.copy(cookies = cookies.first, scopedCookies = cookies.second), working = false, status = R.string.session_imported)
+        credentialsEdited=true
+        mutable.value = state.value.copy(config = state.value.config.copy(cookies = cookies.first, scopedCookies = cookies.second,
+            nativeAccount = "", nativeSession = ""), working = false, status = R.string.session_imported)
     }
     fun save() = work {
         val draft = state.value
         draft.config.validate()
-        val api = runtime.check(draft.config)
-        withContext(Dispatchers.IO) { api.check() }
-        runtime.profiles.save(profile, draft.name, api.currentConfig())
+        val (_,config)=useDraft(draft.config) { it.check() }
+        runtime.profiles.save(profile, draft.name, config,preserveCurrentSession=previous!=null && !credentialsEdited)
         runtime.clearSessions()
         mutable.value = draft.copy(working = false, finished = true)
     }
     fun check() = work {
         state.value.config.validate()
-        val api = runtime.check(state.value.config)
-        withContext(Dispatchers.IO) { api.check() }
-        mutable.value = state.value.copy(config = api.currentConfig(), working = false, status = R.string.connected)
+        val (_,config)=useDraft(state.value.config) { it.check() }
+        mutable.value = state.value.copy(config = config, working = false, status = R.string.connected)
     }
     fun albums(next: Boolean = false) = work {
         val config = state.value.config.also { it.validate() }
-        val api = runtime.check(config)
-        val page = withContext(Dispatchers.IO) { api.albums(state.value.nextAlbum.takeIf { next }) }
-        mutable.value = state.value.copy(config = api.currentConfig(), working = false, albums = page.first, nextAlbum = page.second, chooseAlbum = true)
+        val (page,updated)=useDraft(config) { it.albums(state.value.nextAlbum.takeIf { next }) }
+        mutable.value = state.value.copy(config = updated, working = false, albums = page.first, nextAlbum = page.second, chooseAlbum = true)
+    }
+    private suspend fun <T> useDraft(config: GooglePhotosConfig, block: suspend (GooglePhotosApi)->T): Pair<T,GooglePhotosConfig> = withContext(Dispatchers.IO) {
+        val baseline=previous
+        suspend fun read(api: GooglePhotosApi): Pair<T,GooglePhotosConfig> = block(api) to api.currentConfig().copy(album=config.album,albumName=config.albumName)
+        if(baseline!=null && !credentialsEdited) {
+            val current=runtime.profiles.get(profile)
+            if(current.revision!=baseline.revision) throw ExtensionFailure("PROFILE_CHANGED")
+            runtime.read(current,::read)
+        } else read(runtime.check(config))
     }
     fun album(row: GooglePhotosProtocol.Album?) {
         mutable.value = state.value.copy(config = state.value.config.copy(album = row?.key.orEmpty(), albumName = row?.name.orEmpty()), chooseAlbum = false)

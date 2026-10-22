@@ -71,6 +71,18 @@ class GooglePhotosMediaSessionTest {
         } finally { http.dispatcher.executorService.shutdown(); http.connectionPool.evictAll() }
     }
 
+    @Test fun privateMediaLoginHtmlIsAnAuthenticationFailureBeforeStreamingBytes() = runBlocking {
+        val http = GooglePhotosApi.client().newBuilder().addInterceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
+                .header("Content-Type", "text/html; charset=UTF-8").body("<html>Sign in</html>".toResponseBody()).build()
+        }.build()
+        try {
+            val api = GooglePhotosApi(config(), http)
+            try { api.media("https://photos.fife.usercontent.google.com/fixture"); fail("Expected authentication failure") }
+            catch (error: ExtensionFailure) { assertEquals("HTTP_401", error.code) }
+        } finally { http.dispatcher.executorService.shutdown(); http.connectionPool.evictAll() }
+    }
+
     @Test fun completesGoogleMediaSignInWithoutSendingAccountCookiesToMediaHosts() = runBlocking {
         val requests = mutableListOf<Request>()
         val bytes = byteArrayOf(1, 2, 3, 4)

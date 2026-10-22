@@ -7,7 +7,7 @@
     <string name="source_heading">Source</string>
     <string name="profile_name">Source name</string>
     <string name="account_heading">Google account</string>
-    <string name="vector_help">Enable SAO Google Photos in Vector (modern LSPosed), select Google Photos in its scope, then force-stop and reopen Google Photos. Connect below and choose your account inside Google Photos.</string>
+    <string name="vector_help">Enable SAO Google Photos in Vector (modern LSPosed), select Google Photos in its scope, then force-stop and reopen Google Photos. Connect below and choose your account. Expired sessions renew silently when you use this source, while Google allows it. Google may still require you to reconnect.</string>
     <string name="connect_vector">Connect through Google Photos · Vector</string>
     <string name="cancel_connection">Cancel connection</string>
     <string name="not_connected">No account connected.</string>

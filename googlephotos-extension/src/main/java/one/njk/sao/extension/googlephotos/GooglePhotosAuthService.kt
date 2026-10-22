@@ -16,15 +16,15 @@ internal object GooglePhotosConnect {
     const val PHOTOS = "com.google.android.apps.photos"
     const val EXTRA = "one.njk.sao.googlephotos.CONNECT"
     data class Result(val account: String, val loginUrl: String)
-    class Pending(val nonce: String, val started: Long, val result: CompletableDeferred<Result>) {
+    class Pending(val nonce: String, val started: Long, val result: CompletableDeferred<Result>, val expectedAccount: String?) {
         var claimed = false
     }
     private var pending: Pending? = null
-    @Synchronized fun begin(): Pending {
+    @Synchronized fun begin(expectedAccount: String? = null): Pending {
         pending?.result?.completeExceptionally(ExtensionFailure("CONNECT_CANCELLED"))
         return Pending(android.util.Base64.encodeToString(ByteArray(32).also(SecureRandom()::nextBytes),
             android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING),
-            SystemClock.elapsedRealtime(), CompletableDeferred()).also { pending = it }
+            SystemClock.elapsedRealtime(), CompletableDeferred(), expectedAccount).also { pending = it }
     }
     @Synchronized fun claim(nonce: String): Boolean {
         val active = active(nonce) ?: return false
@@ -37,6 +37,8 @@ internal object GooglePhotosConnect {
         pending = null
         if (failure.isNotEmpty()) active.result.completeExceptionally(ExtensionFailure(
             failure.takeIf { it in setOf("ACCOUNT_MISSING", "CONNECT_CANCELLED", "AUTH_UNSUPPORTED", "HTTP_401") } ?: "HTTP_401"))
+        else if (active.expectedAccount != null && !active.expectedAccount.equals(account, ignoreCase = true))
+            active.result.completeExceptionally(ExtensionFailure("HTTP_401"))
         else if (account.length !in 3..320 || url.length !in 1..16_384) active.result.completeExceptionally(ExtensionFailure("INVALID_RESPONSE"))
         else active.result.complete(Result(account, url))
     }

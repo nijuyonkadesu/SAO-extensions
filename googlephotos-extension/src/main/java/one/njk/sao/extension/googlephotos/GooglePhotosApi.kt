@@ -35,7 +35,7 @@ internal class GooglePhotosApi(
     private var bootstrappedAt = 0L
     private val basePath = if (config.account == 0) "/" else "/u/${config.account}/"
 
-    suspend fun check() { bootstrap(force = true) }
+    suspend fun check() = bootstrap(force = true)
     fun currentConfig() = config.copy(cookies = synchronized(cookiesLock) { cookieHeader }, scopedCookies = jar.snapshot())
 
     private suspend fun receiveCookies(url: HttpUrl, headers: Headers) = cookieUpdates.withLock {
@@ -139,7 +139,8 @@ internal class GooglePhotosApi(
                 if (firstParty) receiveCookies(current, opened.response.headers)
                 trace("Media HTTP: host=${current.host}, status=${opened.response.code}")
                 if (!opened.response.isRedirect) {
-                    if (accounts) throw ExtensionFailure("HTTP_401")
+                    val html=opened.response.header("Content-Type")?.substringBefore(';')?.trim()?.equals("text/html",ignoreCase=true)==true
+                    if (accounts || firstParty && html) throw ExtensionFailure("HTTP_401")
                     return opened
                 }
                 current = opened.response.header("Location")?.let(current::resolve) ?: throw ExtensionFailure("INVALID_RESPONSE")
@@ -209,7 +210,8 @@ internal class GooglePhotosApi(
                                 .joinToString("; ") { "${it.name}=${it.value}" }
                             GooglePhotosCookies.validate(session)
                             // A fresh cookie jar contains exactly the user-selected account, hence account index 0.
-                            return@withContext GooglePhotosConfig(session, scopedCookies = cookies.toList())
+                            return@withContext GooglePhotosConfig(session, scopedCookies = cookies.toList(),
+                                nativeAccount = account, nativeSession = java.util.UUID.randomUUID().toString())
                         } finally { cancel.cancel() }
                     }
                 }

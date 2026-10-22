@@ -36,10 +36,6 @@ class GooglePhotosMediaProvider : ContentProvider() {
                 if (row.revision != parts[1]) throw ExtensionFailure("PROFILE_CHANGED")
                 val records = GooglePhotosRecords(runtime.profiles)
                 val ref = records.mediaReference(row, parts[3])
-                val api = runtime.api(row)
-                stage = "resolve variant"
-                val (url, mime) = records.variant(ref, parts[2], api)
-                stage = "open HTTP"
                 coroutineScope {
                     val finished = java.util.concurrent.atomic.AtomicBoolean()
                     val transfer = currentCoroutineContext().job
@@ -48,41 +44,48 @@ class GooglePhotosMediaProvider : ContentProvider() {
                         catch (_: android.system.ErrnoException) { }
                         finally { if (!finished.get()) transfer.cancel() }
                     }
-                    try { api.media(url) { android.util.Log.i("SAO.GooglePhotos", it) }.use { opened ->
-                        val cancel = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
-                            try { awaitCancellation() } finally { opened.cancel() }
+                    try {
+                        val (mime, opened)=runtime.read(row) { api ->
+                            stage="resolve variant"
+                            val (url, type)=records.variant(ref,parts[2],api)
+                            stage="open HTTP"
+                            type to api.media(url) { android.util.Log.i("SAO.GooglePhotos",it) }
                         }
-                        try {
-                            stage = "validate body"
-                            val body = requireNotNull(opened.response.body)
-                            val limit = when {
-                                parts[2] == "playback" -> 8L * 1024 * 1024
-                                parts[2] == "preview" && mime == "image/jpeg" -> 16L * 1024 * 1024
-                                else -> 1024L * 1024 * 1024
+                        opened.use {
+                            val cancel = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+                                try { awaitCancellation() } finally { opened.cancel() }
                             }
-                            if (body.contentLength() > limit) throw ExtensionFailure("MEDIA_TOO_LARGE")
-                            val input = body.source()
-                            if (!input.request(12)) throw ExtensionFailure("INVALID_RESPONSE")
-                            val head = input.peek().readByteArray(12)
-                            if (head[0] == '<'.code.toByte()) throw ExtensionFailure("INVALID_RESPONSE")
-                            // An unavailable rendition can return a thumbnail with HTTP 200.
-                            // Do not cache it as a video or fall back to downloading the original.
-                            if (parts[2] == "playback" && !head.copyOfRange(4, 8).contentEquals(byteArrayOf(102, 116, 121, 112)))
-                                throw ExtensionFailure("UNSUPPORTED")
-                            val output = ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
-                            val buffer = ByteArray(32 * 1024)
-                            var size = 0L
-                            stage = "stream bytes"
-                            while (true) {
-                                ensureActive()
-                                val count = input.read(buffer)
-                                if (count < 0) break
-                                size += count
-                                if (size > limit) throw ExtensionFailure("MEDIA_TOO_LARGE")
-                                output.write(buffer, 0, count)
-                            }
-                            android.util.Log.i("SAO.GooglePhotos", "Media ${parts[2]} transferred: bytes=$size")
-                        } finally { cancel.cancel() }
+                            try {
+                                stage = "validate body"
+                                val body = requireNotNull(opened.response.body)
+                                val limit = when {
+                                    parts[2] == "playback" -> 8L * 1024 * 1024
+                                    parts[2] == "preview" && mime == "image/jpeg" -> 16L * 1024 * 1024
+                                    else -> 1024L * 1024 * 1024
+                                }
+                                if (body.contentLength() > limit) throw ExtensionFailure("MEDIA_TOO_LARGE")
+                                val input = body.source()
+                                if (!input.request(12)) throw ExtensionFailure("INVALID_RESPONSE")
+                                val head = input.peek().readByteArray(12)
+                                if (head[0] == '<'.code.toByte()) throw ExtensionFailure("INVALID_RESPONSE")
+                                // An unavailable rendition can return a thumbnail with HTTP 200.
+                                // Do not cache it as a video or fall back to downloading the original.
+                                if (parts[2] == "playback" && !head.copyOfRange(4, 8).contentEquals(byteArrayOf(102, 116, 121, 112)))
+                                    throw ExtensionFailure("UNSUPPORTED")
+                                val output = ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
+                                val buffer = ByteArray(32 * 1024)
+                                var size = 0L
+                                stage = "stream bytes"
+                                while (true) {
+                                    ensureActive()
+                                    val count = input.read(buffer)
+                                    if (count < 0) break
+                                    size += count
+                                    if (size > limit) throw ExtensionFailure("MEDIA_TOO_LARGE")
+                                    output.write(buffer, 0, count)
+                                }
+                                android.util.Log.i("SAO.GooglePhotos", "Media ${parts[2]} transferred: bytes=$size")
+                            } finally { cancel.cancel() }
                     } } finally {
                         finished.set(true)
                         // Wake the single blocking peer read; no timer or descriptor polling.

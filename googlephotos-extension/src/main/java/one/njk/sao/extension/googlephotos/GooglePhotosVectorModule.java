@@ -7,10 +7,12 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Instrumentation;
 import android.content.ComponentName;
+import android.content.ContentProvider;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -25,6 +27,8 @@ import java.util.concurrent.Executors;
 public final class GooglePhotosVectorModule extends XposedModule {
     private static final String PHOTOS = "com.google.android.apps.photos";
     private static final String EXTRA = "one.njk.sao.googlephotos.CONNECT";
+    private static final String RENEW = "one.njk.sao.googlephotos.RENEW_SESSION";
+    private static final String PROVIDER = "com.google.android.apps.photos.backup.apiservice.status.BackupStatusContentProvider";
     private Handler main;
     private String modulePackage;
     private int moduleUid;
@@ -66,6 +70,33 @@ public final class GooglePhotosVectorModule extends XposedModule {
         } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
             Log.w("SAO.GooglePhotos", "Lifecycle hook setup failed: " + error.getClass().getSimpleName());
         }
+        installRenewal(param.getClassLoader());
+    }
+
+    private void installRenewal(ClassLoader loader) {
+        try {
+            Class<?> provider = Class.forName(PROVIDER, false, loader);
+            Method call = provider.getMethod("call", String.class, String.class, Bundle.class);
+            hook(call).intercept(chain -> {
+                if (!RENEW.equals(chain.getArg(0)) || !provider.isInstance(chain.getThisObject())) return chain.proceed();
+                // Intercept only our namespaced operation. All Photos operations keep their own checks.
+                if (Binder.getCallingUid() != moduleUid) throw new SecurityException("Extension only");
+                String nonce = (String) chain.getArg(1);
+                Bundle extras = (Bundle) chain.getArg(2);
+                String account = extras == null ? null : extras.getString("account");
+                if (nonce == null || !nonce.matches("[A-Za-z0-9_-]{43}") || account == null ||
+                    account.length() < 3 || account.length() > 320 || !account.contains("@"))
+                    throw new IllegalArgumentException("Invalid renewal request");
+                Context context = ((ContentProvider) chain.getThisObject()).getContext();
+                if (context == null) throw new IllegalStateException("Provider not attached");
+                main.post(() -> new Connection(context, nonce, account).start());
+                Bundle accepted = new Bundle(); accepted.putBoolean("accepted", true); return accepted;
+            });
+            Log.i("SAO.GooglePhotos", "Silent renewal hook installed");
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+            // Interactive Connect remains usable if a future Photos version removes this provider.
+            Log.w("SAO.GooglePhotos", "Silent renewal unavailable: " + error.getClass().getSimpleName());
+        }
     }
 
     private void remember(Intent intent) {
@@ -92,6 +123,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
         final WeakReference<Activity> activity;
         final Context context;
         final String nonce;
+        final String renewalAccount;
         final ExecutorService io = Executors.newSingleThreadExecutor(r -> {
             Thread thread = new Thread(r, "SAO Photos connect"); thread.setDaemon(true); return thread;
         });
@@ -104,6 +136,11 @@ public final class GooglePhotosVectorModule extends XposedModule {
 
         Connection(Activity current, String nonce) {
             activity = new WeakReference<>(current); context = current.getApplicationContext(); this.nonce = nonce;
+            renewalAccount = null;
+        }
+        Connection(Context current, String nonce, String account) {
+            activity = new WeakReference<>(null); context = current.getApplicationContext(); this.nonce = nonce;
+            renewalAccount = account;
         }
         void start() {
             try {
@@ -113,7 +150,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
                 bound = context.bindService(new Intent().setComponent(new ComponentName(modulePackage,
                     modulePackage + ".GooglePhotosAuthService")), this, Context.BIND_AUTO_CREATE);
                 if (!bound) { Log.w("SAO.GooglePhotos", "Auth service bind rejected"); close(); }
-                else { Log.i("SAO.GooglePhotos", "Auth service bind requested"); main.postDelayed(timeout, 110_000); }
+                else { Log.i("SAO.GooglePhotos", "Auth service bind requested"); main.postDelayed(timeout, renewalAccount == null ? 110_000 : 14_000); }
             } catch (Exception error) {
                 Log.w("SAO.GooglePhotos", "Auth service bind failed: " + error.getClass().getSimpleName()); close();
             }
@@ -142,6 +179,12 @@ public final class GooglePhotosVectorModule extends XposedModule {
         }
         void showAccounts(Account[] accounts) {
             if (finished) return;
+            if (renewalAccount != null) {
+                for (Account account : accounts) {
+                    if (renewalAccount.equalsIgnoreCase(account.name)) { token(null, account); return; }
+                }
+                finish("", "", "ACCOUNT_MISSING"); return;
+            }
             Activity current = activity.get();
             if (current == null || current.isFinishing() || current.isDestroyed()) { finish("", "", "CONNECT_CANCELLED"); return; }
             try {
@@ -161,9 +204,13 @@ public final class GooglePhotosVectorModule extends XposedModule {
                 // Photos' own WebAuth flow uses this AccountManager token type.
                 String scope = "weblogin:service=gaia&continue=" + android.net.Uri.encode("https://photos.google.com/");
                 Log.i("SAO.GooglePhotos", "Native web login requested");
-                auth = AccountManager.get(context).getAuthToken(account, scope, new Bundle(), current, future -> {
+                android.accounts.AccountManagerCallback<Bundle> callback = future -> {
                     try {
-                        String url = future.getResult().getString(AccountManager.KEY_AUTHTOKEN);
+                        Bundle result = future.getResult();
+                        // The background overload returns an Intent when Google needs interaction.
+                        // Never start that Intent from a renewal request.
+                        if (result.containsKey(AccountManager.KEY_INTENT)) { finish("", "", "HTTP_401"); return; }
+                        String url = result.getString(AccountManager.KEY_AUTHTOKEN);
                         if (url == null || !url.startsWith("https://accounts.google.com/MergeSession?") || url.length() > 16384)
                             finish("", "", "AUTH_UNSUPPORTED");
                         else {
@@ -176,7 +223,9 @@ public final class GooglePhotosVectorModule extends XposedModule {
                         }
                     } catch (android.accounts.OperationCanceledException ignored) { finish("", "", "CONNECT_CANCELLED"); }
                     catch (Exception ignored) { finish("", "", "HTTP_401"); }
-                }, main);
+                };
+                auth = renewalAccount == null ? AccountManager.get(context).getAuthToken(account, scope, new Bundle(), current, callback, main) :
+                    AccountManager.get(context).getAuthToken(account, scope, new Bundle(), false, callback, main);
             } catch (Exception ignored) { finish("", "", "AUTH_UNSUPPORTED"); }
         }
         void finish(String account, String url, String failure) {

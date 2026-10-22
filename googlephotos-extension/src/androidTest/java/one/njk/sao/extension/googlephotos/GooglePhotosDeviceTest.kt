@@ -126,6 +126,7 @@ class GooglePhotosDeviceTest {
         runtime.clearSessions()
         runtime.fixture?.let { it.dispatcher.cancelAll(); it.connectionPool.evictAll(); it.dispatcher.executorService.shutdown() }
         runtime.fixture = null
+        runtime.fixtureRenewal = null
         server.shutdown()
     }
     private suspend fun profile(config: GooglePhotosConfig = GooglePhotosConfig("SID=fixture-cookie")): GooglePhotosProfile {
@@ -267,6 +268,113 @@ class GooglePhotosDeviceTest {
         // Observe the settled carousel, rather than merely a request started during navigation.
         delay(500)
         assertEquals(1, playbackRequests.get()); assertEquals(0, downloads.get())
+    }
+
+    private fun nativeConfig() = GooglePhotosConfig("SID=expired-fixture", nativeAccount="fixture@example.com",
+        nativeSession=UUID.randomUUID().toString())
+
+    @Test fun concurrentExpiredReadsRenewOnceAndPreserveAlbumRevisionAndOldReferences(): Unit = runBlocking {
+        val row=profile(nativeConfig().copy(album="album-key",albumName="Memes"))
+        val old=page(row,MediaQuery()).items.first()
+        val renewed=java.util.concurrent.atomic.AtomicBoolean()
+        val calls=AtomicInteger()
+        search={ if(!renewed.get()) MockResponse().setResponseCode(401) else null }
+        runtime.fixtureRenewal={ account ->
+            assertEquals("fixture@example.com",account); calls.incrementAndGet(); delay(100)
+            renewed.set(true)
+            nativeConfig().copy(cookies="SID=fresh-fixture")
+        }
+        assertFalse(SourceWire.capabilities(client.request(row.id,ExtensionProtocol.CAPABILITIES,payload(row))).imports)
+        assertEquals(0,calls.get())
+        val results=coroutineScope { List(6) { async(Dispatchers.IO) { page(row,MediaQuery()) } }.awaitAll() }
+        assertEquals(1,calls.get())
+        assertTrue(results.all { it.items.first().id==old.id })
+        val saved=store.get(row.id)
+        assertEquals(row.revision,saved.revision); assertEquals("album-key",saved.config.album); assertEquals("Memes",saved.config.albumName)
+        assertNotEquals(row.config.nativeSession,saved.config.nativeSession)
+        assertArrayEquals(png,read(uri(row,old,"original")))
+        store.refreshCookies(row.id,row.revision,"SID=late-old-response",expectedSession=row.config.nativeSession)
+        assertEquals("SID=fresh-fixture",store.get(row.id).config.cookies)
+    }
+
+    @Test fun interactionRequiredLatchesUntilReconnectAndImportedCookiesStayManual(): Unit = runBlocking {
+        val row=profile(nativeConfig()); val calls=AtomicInteger()
+        search={ MockResponse().setResponseCode(401) }
+        runtime.fixtureRenewal={ calls.incrementAndGet(); throw ExtensionFailure("HTTP_401") }
+        repeat(3) { fails("HTTP_401") { page(row) } }
+        assertEquals(1,calls.get())
+        val imported=profile()
+        fails("HTTP_401") { page(imported) }
+        assertEquals(1,calls.get())
+        val pending=GooglePhotosConnect.begin("fixture@example.com")
+        assertTrue(GooglePhotosConnect.claim(pending.nonce))
+        GooglePhotosConnect.complete(pending.nonce,"other@example.com","https://accounts.google.com/MergeSession?uberauth=fixture","")
+        fails("HTTP_401") { pending.result.await() }
+    }
+
+    @Test fun transientRenewalUsesPassiveCooldownAndCancelledAttemptCanRetry(): Unit = runBlocking {
+        val row=profile(nativeConfig()); var now=0L; var calls=0
+        val failed=GooglePhotosSessionRenewal(store,{ calls++; throw java.io.IOException("fixture") },{ now })
+        repeat(3) { fails("NETWORK") { failed.renew(row) } }
+        assertEquals(1,calls)
+        now=60_001
+        fails("NETWORK") { failed.renew(row) }; assertEquals(2,calls)
+        val throttled=GooglePhotosSessionRenewal(store,{ calls++; throw ExtensionFailure("HTTP_429","3600") },{ now })
+        fails("HTTP_429") { throttled.renew(row) }; assertEquals(3,calls)
+        now+=60_001
+        fails("HTTP_429") { throttled.renew(row) }; assertEquals(3,calls)
+        now+=3_600_001
+        fails("HTTP_429") { throttled.renew(row) }; assertEquals(4,calls)
+        val entered=CompletableDeferred<Unit>()
+        val cancellable=GooglePhotosSessionRenewal(store,{
+            calls++
+            if(!entered.isCompleted) { entered.complete(Unit); awaitCancellation() }
+            nativeConfig().copy(cookies="SID=after-cancel")
+        })
+        val pending=launch { cancellable.renew(row) }
+        entered.await(); pending.cancelAndJoin()
+        assertEquals("SID=after-cancel",cancellable.renew(row).config.cookies)
+        assertEquals(6,calls)
+    }
+
+    @Test fun permissionFailuresDoNotTriggerNativeRenewal(): Unit = runBlocking {
+        val row=profile(nativeConfig()); val calls=AtomicInteger()
+        search={ MockResponse().setResponseCode(403) }
+        runtime.fixtureRenewal={ calls.incrementAndGet(); nativeConfig() }
+        fails("HTTP_403") { page(row) }
+        assertEquals(0,calls.get()); assertEquals(2,requestedQueries.size)
+    }
+
+    @Test fun expiredMediaRenewsBeforeWritingBytesAndKeepsOriginalIntact(): Unit = runBlocking {
+        val row=profile(nativeConfig()); val item=page(row).items.first()
+        val fresh=java.util.concurrent.atomic.AtomicBoolean(); val calls=AtomicInteger()
+        media={ if(!fresh.get()) MockResponse().setResponseCode(401) else null }
+        runtime.fixtureRenewal={ calls.incrementAndGet(); fresh.set(true); nativeConfig().copy(cookies="SID=media-fresh") }
+        assertArrayEquals(png,read(uri(row,item,"original")))
+        assertEquals(1,calls.get()); assertEquals(row.revision,store.get(row.id).revision)
+    }
+
+    @Test fun openSettingsDraftKeepsRenewedCredentialsAndCheckDoesNotBecomeAnUnsavedEdit(): Unit = runBlocking {
+        val row=profile(nativeConfig())
+        val model=GooglePhotosSettingsViewModel(app.applicationContext as android.app.Application,
+            androidx.lifecycle.SavedStateHandle(mapOf(ExtensionProtocol.PROFILE to row.id)))
+        val holder=androidx.lifecycle.ViewModelStore().apply { put("fixture",model) }
+        try {
+            withTimeout(5000) { while(!model.state.value.loaded) delay(10) }
+            val fresh=store.renewSession(row,nativeConfig().copy(cookies="SID=renewed-while-editing"))
+            model.check()
+            withTimeout(5000) { while(model.state.value.working) delay(10) }
+            assertFalse(model.hasChanges)
+            assertEquals(fresh.config.nativeSession,model.state.value.config.nativeSession)
+            model.name("Renamed after renewal"); assertTrue(model.hasChanges)
+            model.save()
+            withTimeout(5000) { while(model.state.value.working) delay(10) }
+            assertTrue(model.state.value.finished)
+            val saved=store.get(row.id)
+            assertEquals(row.revision,saved.revision)
+            assertEquals(fresh.config.nativeSession,saved.config.nativeSession)
+            assertEquals("SID=renewed-while-editing",saved.config.cookies)
+        } finally { instrumentation.runOnMainSync { holder.clear() } }
     }
 
     @Test fun explicitNativeLoginConsumesOnlyTrustedGoogleRedirects(): Unit = runBlocking {
