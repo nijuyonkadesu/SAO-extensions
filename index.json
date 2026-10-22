@@ -11,18 +11,18 @@
       "versionName": "1.2.5",
       "apiVersion": 1,
       "minSdk": 30,
-      "signerSha256": "3b66442b40d2f2b5b65981f6d6ce47205f464fe46a78cb4e64377dfc5d139e50",
-      "channel": "development",
+      "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
+      "channel": "stable",
       "artifacts": [
         {
           "abi": "universal",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/immich-v1.2.5-debug/immich-sao.apk",
-          "sha256": "1abd198b3fa18fece9591142a2f2b989ab6d42b9cd673849e20201109e0f70a1",
-          "size": 3420750
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/immich-v1.2.5/immich-sao.apk",
+          "sha256": "4cfaec47c13cebdd063774db314adf1740dcc149b243a4dae784e02c320e21b4",
+          "size": 3420744
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/immich.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/immich-v1.2.5-debug"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/immich-v1.2.5"
     },
     {
       "id": "local",
@@ -33,30 +33,30 @@
       "versionName": "1.6.6",
       "apiVersion": 1,
       "minSdk": 30,
-      "signerSha256": "3b66442b40d2f2b5b65981f6d6ce47205f464fe46a78cb4e64377dfc5d139e50",
-      "channel": "development",
+      "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
+      "channel": "stable",
       "artifacts": [
         {
           "abi": "armeabi-v7a",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6-debug/local-sticker-armeabi-v7a.apk",
-          "sha256": "38345195b59793e18985c977d84ed521b62aac8b9ae742c26c9e7d0efc1e757a",
-          "size": 26651998
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6/local-sticker-armeabi-v7a.apk",
+          "sha256": "ec8356ec895333e64d00771ec6f7a1e9de3679c750ff4f9bc220cf051cb29ee0",
+          "size": 26651992
         },
         {
           "abi": "arm64-v8a",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6-debug/local-sticker-arm64-v8a.apk",
-          "sha256": "796efcd5733c2b6bbca76002bfd367d4e3a80ee3329b801784ac6306d8f1030a",
-          "size": 29592916
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6/local-sticker-arm64-v8a.apk",
+          "sha256": "f287337d940a49623e8ee4c8099dd2363d5d7d74a217a08907bcb1f4750a8dde",
+          "size": 29592910
         },
         {
           "abi": "x86_64",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6-debug/local-sticker-x86_64.apk",
-          "sha256": "c8d12fa611a36b0787f1b36d4056f477c753bcfcc89735feb2f63f901f3fb6ea",
-          "size": 32042309
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6/local-sticker-x86_64.apk",
+          "sha256": "f7af101cee9af008ad3d50b70ea22a992b834ad0243aeedc44f4978de6593d36",
+          "size": 32042303
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/local.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/local-v1.6.6-debug"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/local-v1.6.6"
     },
     {
       "id": "moeview",
@@ -67,18 +67,18 @@
       "versionName": "1.1.7",
       "apiVersion": 1,
       "minSdk": 30,
-      "signerSha256": "3b66442b40d2f2b5b65981f6d6ce47205f464fe46a78cb4e64377dfc5d139e50",
-      "channel": "development",
+      "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
+      "channel": "stable",
       "artifacts": [
         {
           "abi": "universal",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/moeview-v1.1.7-debug/moeview-sao.apk",
-          "sha256": "399cc99ef2081dabb3f6b9913aef6e8aac2b48ca84b3432abe56b328cf3fc134",
-          "size": 2449712
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/moeview-v1.1.7/moeview-sao.apk",
+          "sha256": "a0f2bd64a1991ff2ee7d7035da1cc8bc4ced0734bc654bba6ea95ea9cd4b8d34",
+          "size": 2449706
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/moeview.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/moeview-v1.1.7-debug"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/moeview-v1.1.7"
     },
     {
       "id": "findthatmeme",
@@ -89,18 +89,18 @@
       "versionName": "1.0.2",
       "apiVersion": 1,
       "minSdk": 30,
-      "signerSha256": "3b66442b40d2f2b5b65981f6d6ce47205f464fe46a78cb4e64377dfc5d139e50",
-      "channel": "development",
+      "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
+      "channel": "stable",
       "artifacts": [
         {
           "abi": "universal",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/findthatmeme-v1.0.2-debug/findthatmeme-sao.apk",
-          "sha256": "21461436c867519f611f74dc3d7dd45fc9db77a1cb69d9feb676702f54deaea8",
-          "size": 2306295
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/findthatmeme-v1.0.2/findthatmeme-sao.apk",
+          "sha256": "78e07037658e35b7fdf5ce9e87ea892bde8976cd2633f4ec5ac982fcc445b24a",
+          "size": 2306289
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/findthatmeme.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/findthatmeme-v1.0.2-debug"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/findthatmeme-v1.0.2"
     },
     {
       "id": "googlephotos",
@@ -111,18 +111,18 @@
       "versionName": "0.1.3",
       "apiVersion": 1,
       "minSdk": 30,
-      "signerSha256": "3b66442b40d2f2b5b65981f6d6ce47205f464fe46a78cb4e64377dfc5d139e50",
-      "channel": "development",
+      "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
+      "channel": "stable",
       "artifacts": [
         {
           "abi": "universal",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/googlephotos-v0.1.3-debug/googlephotos-sao.apk",
-          "sha256": "3b076f46272d2844096e60d2ae3159e24a79fa9030980a1f18122907ef8ca395",
-          "size": 2368074
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/googlephotos-v0.1.3/googlephotos-sao.apk",
+          "sha256": "7569e2d2c68ece6ece0bc0cadc46955b204bb1ef3ced263289d79bb091588068",
+          "size": 2368068
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/googlephotos.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/googlephotos-v0.1.3-debug"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/googlephotos-v0.1.3"
     }
   ]
 }
