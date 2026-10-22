@@ -13,7 +13,9 @@ internal class GooglePhotosRuntime private constructor(context: Context) {
     }
     fun api(row: GooglePhotosProfile): GooglePhotosApi = synchronized(sessions) {
         sessions.getOrPut("${row.id}:${row.revision}") {
-            GooglePhotosApi(row.config, fixture ?: production) { profiles.refreshCookies(row.id, row.revision, it) }
+            GooglePhotosApi(row.config, fixture ?: production) {
+                profiles.refreshCookies(row.id, row.revision, it.cookies, it.scopedCookies)
+            }
         }
     }
     fun check(config: GooglePhotosConfig) = GooglePhotosApi(config, fixture ?: production)

@@ -12,6 +12,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import one.njk.sao.source.*
+import okhttp3.Cookie
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -23,17 +25,27 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 data class GooglePhotosConfig(val cookies: String = "", val account: Int = 0,
-    val album: String = "", val albumName: String = "") {
+    val album: String = "", val albumName: String = "", val scopedCookies: List<Cookie> = emptyList()) {
     fun validate() {
         require(account in 0..99 && album.length <= 512 && albumName.length <= 256)
         require(album.isEmpty() || GooglePhotosProtocol.validKey(album))
         GooglePhotosCookies.validate(cookies)
+        require(scopedCookies.size <= 200)
     }
     fun json(): JSONObject = JSONObject().put("cookies", cookies).put("account", account)
-        .put("album", album).put("albumName", albumName)
+        .put("album", album).put("albumName", albumName).put("scopedCookies", JSONArray(scopedCookies.map {
+            JSONObject().put("origin", "https://${it.domain}/").put("cookie", it.toString())
+        }))
     companion object {
         fun read(json: JSONObject) = GooglePhotosConfig(json.getString("cookies"), json.getInt("account"),
-            json.optString("album"), json.optString("albumName")).also { it.validate() }
+            json.optString("album"), json.optString("albumName"), json.optJSONArray("scopedCookies")?.let { rows ->
+                require(rows.length() <= 200)
+                List(rows.length()) { i -> rows.getJSONObject(i).let {
+                    val origin = it.getString("origin").toHttpUrl()
+                    require(origin.isHttps && (origin.host == "google.com" || origin.host.endsWith(".google.com")))
+                    requireNotNull(Cookie.parse(origin, it.getString("cookie")))
+                } }
+            }.orEmpty()).also { it.validate() }
     }
 }
 
@@ -70,11 +82,12 @@ class GooglePhotosProfiles(context: Context) {
         write(rows.filterNot { it.id==id }); revoke(row)
     } }
     /** Cookie rotation is authentication maintenance, not a new source identity. */
-    suspend fun refreshCookies(id: String, revision: String, cookies: String) = withContext(Dispatchers.IO) { lock.withLock {
+    suspend fun refreshCookies(id: String, revision: String, cookies: String, scopedCookies: List<Cookie>? = null) = withContext(Dispatchers.IO) { lock.withLock {
         GooglePhotosCookies.validate(cookies)
         val rows = read()
         val row = rows.firstOrNull { it.id == id && it.revision == revision } ?: throw ExtensionFailure("PROFILE_CHANGED")
-        if (row.config.cookies != cookies) write(rows.map { if (it.id == id) it.copy(config = it.config.copy(cookies = cookies)) else it })
+        val config = row.config.copy(cookies = cookies, scopedCookies = scopedCookies ?: row.config.scopedCookies)
+        if (row.config != config) write(rows.map { if (it.id == id) it.copy(config = config) else it })
     } }
     fun seal(value: JSONObject): String=Base64.encodeToString(encrypt(value.toString().toByteArray()),Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     fun open(token: String): JSONObject = try {

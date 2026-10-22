@@ -29,6 +29,7 @@ class GooglePhotosMediaProvider : ContentProvider() {
         // Unlike an opening CancellationSignal, this also covers cancellation after openFile returns.
         val pipe = ParcelFileDescriptor.createReliableSocketPair()
         val job = scope.launch(start = CoroutineStart.LAZY) {
+            var stage = "resolve reference"
             try {
                 val runtime = GooglePhotosRuntime.get(app)
                 val row = runtime.profiles.get(parts[0])
@@ -36,7 +37,9 @@ class GooglePhotosMediaProvider : ContentProvider() {
                 val records = GooglePhotosRecords(runtime.profiles)
                 val ref = records.mediaReference(row, parts[3])
                 val api = runtime.api(row)
+                stage = "resolve variant"
                 val (url, mime) = records.variant(ref, parts[2], api)
+                stage = "open HTTP"
                 coroutineScope {
                     val finished = java.util.concurrent.atomic.AtomicBoolean()
                     val transfer = currentCoroutineContext().job
@@ -45,11 +48,12 @@ class GooglePhotosMediaProvider : ContentProvider() {
                         catch (_: android.system.ErrnoException) { }
                         finally { if (!finished.get()) transfer.cancel() }
                     }
-                    try { api.media(url).use { opened ->
+                    try { api.media(url) { android.util.Log.i("SAO.GooglePhotos", it) }.use { opened ->
                         val cancel = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
                             try { awaitCancellation() } finally { opened.cancel() }
                         }
                         try {
+                            stage = "validate body"
                             val body = requireNotNull(opened.response.body)
                             val limit = if (parts[2] == "preview" && mime == "image/jpeg") 16L * 1024 * 1024 else 1024L * 1024 * 1024
                             if (body.contentLength() > limit) throw ExtensionFailure("MEDIA_TOO_LARGE")
@@ -60,6 +64,7 @@ class GooglePhotosMediaProvider : ContentProvider() {
                             val output = ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
                             val buffer = ByteArray(32 * 1024)
                             var size = 0L
+                            stage = "stream bytes"
                             while (true) {
                                 ensureActive()
                                 val count = input.read(buffer)
@@ -68,6 +73,7 @@ class GooglePhotosMediaProvider : ContentProvider() {
                                 if (size > limit) throw ExtensionFailure("MEDIA_TOO_LARGE")
                                 output.write(buffer, 0, count)
                             }
+                            android.util.Log.i("SAO.GooglePhotos", "Media ${parts[2]} transferred: bytes=$size")
                         } finally { cancel.cancel() }
                     } } finally {
                         finished.set(true)
@@ -80,6 +86,9 @@ class GooglePhotosMediaProvider : ContentProvider() {
                 pipe[1].close()
             } catch (error: Exception) {
                 val failure = GooglePhotosRuntime.failure(error)
+                if (error !is CancellationException) android.util.Log.w("SAO.GooglePhotos",
+                    "Media ${parts[2]} failed at $stage: ${failure.code} (${error.javaClass.simpleName})\n" +
+                        error.stackTrace.take(5).joinToString("\n") { "at $it" })
                 try { pipe[1].closeWithError(JSONObject().put("code", failure.code).put("retryAfter", failure.retryAfter).toString()) }
                 catch (_: java.io.IOException) { }
             }

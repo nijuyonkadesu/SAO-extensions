@@ -5,7 +5,7 @@ import org.junit.Test
 
 class GooglePhotosMediaUrlTest {
     @Test fun acceptsPhotosFifeAndExistingMediaHosts() {
-        listOf("photos.fife.usercontent.google.com", "lh3.googleusercontent.com", "lh3.ggpht.com").forEach { host ->
+        listOf("photos.fife.usercontent.google.com", "lh3.google.com", "lh3.googleusercontent.com", "lh3.ggpht.com").forEach { host ->
             assertTrue(host, GooglePhotosProtocol.allowedMedia("https://$host/pw/fixture=w512-h512-no"))
         }
     }
@@ -13,6 +13,7 @@ class GooglePhotosMediaUrlTest {
     @Test fun fifeDoesNotAllowOtherGoogleHostsOrHostSpoofing() {
         listOf(
             "https://photos.fife.usercontent.google.com.evil.test/fixture",
+            "https://lh3.google.com.evil.test/fixture",
             "https://evil.test/photos.fife.usercontent.google.com/fixture",
             "https://accounts.google.com/fixture",
             "https://usercontent.google.com/fixture",

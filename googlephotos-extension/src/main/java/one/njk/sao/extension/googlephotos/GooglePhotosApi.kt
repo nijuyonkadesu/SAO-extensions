@@ -15,18 +15,42 @@ import kotlin.coroutines.resumeWithException
 internal class GooglePhotosApi(
     private val config: GooglePhotosConfig,
     private val http: OkHttpClient,
-    private val updateCookies: suspend (String) -> Unit = {},
+    private val updateCookies: suspend (GooglePhotosConfig) -> Unit = {},
 ) {
     private val bootstrapLock = Mutex()
     private val cookiesLock = Any()
+    private val cookieUpdates = Mutex()
+    private val jar = GooglePhotosCookieJar(config.scopedCookies.ifEmpty {
+        // Old profiles only recorded a Photos Cookie header; do not invent broader domain permissions.
+        config.cookies.split(';').mapNotNull { pair ->
+            val parts = pair.trim().split('=', limit = 2)
+            if (parts.size != 2) null else Cookie.Builder().name(parts[0]).value(parts[1])
+                .hostOnlyDomain("photos.google.com").path("/").secure().build()
+        }
+    })
     private var cookieHeader = config.cookies
     private var persistedCookies = config.cookies
+    private var persistedScopedCookies = jar.snapshot()
     private var globals: GooglePhotosProtocol.Globals? = null
     private var bootstrappedAt = 0L
     private val basePath = if (config.account == 0) "/" else "/u/${config.account}/"
 
     suspend fun check() { bootstrap(force = true) }
-    fun currentConfig() = config.copy(cookies = synchronized(cookiesLock) { cookieHeader })
+    fun currentConfig() = config.copy(cookies = synchronized(cookiesLock) { cookieHeader }, scopedCookies = jar.snapshot())
+
+    private suspend fun receiveCookies(url: HttpUrl, headers: Headers) = cookieUpdates.withLock {
+        val fresh = Cookie.parseAll(url, headers)
+        if (fresh.isEmpty()) return@withLock
+        jar.saveFromResponse(url, fresh)
+        val next = jar.loadForRequest("https://photos.google.com$basePath".toHttpUrl()).joinToString("; ") { "${it.name}=${it.value}" }
+        try { GooglePhotosCookies.validate(next) } catch (_: IllegalArgumentException) { throw ExtensionFailure("HTTP_401") }
+        synchronized(cookiesLock) { cookieHeader = next }
+        val scoped = jar.snapshot()
+        if (next != persistedCookies || scoped != persistedScopedCookies) {
+            updateCookies(config.copy(cookies = next, scopedCookies = scoped))
+            persistedCookies = next; persistedScopedCookies = scoped
+        }
+    }
     suspend fun page(query: String, cursor: String?): GooglePhotosProtocol.Page {
         val album = config.album.isNotEmpty()
         val request = when {
@@ -93,39 +117,36 @@ internal class GooglePhotosApi(
                 val body = opened.response.body ?: throw ExtensionFailure("INVALID_RESPONSE")
                 val source = body.source()
                 if (body.contentLength() > limit || source.request(limit + 1)) throw ExtensionFailure("INVALID_RESPONSE")
-                val changed = synchronized(cookiesLock) {
-                    val values = cookieHeader.split(';').associate {
-                        val pair = it.trim().split('=', limit = 2); pair[0] to pair[1]
-                    }.toMutableMap()
-                    Cookie.parseAll(request.url, opened.response.headers).forEach { cookie ->
-                        if (cookie.matches(request.url)) {
-                            if (cookie.expiresAt <= System.currentTimeMillis()) values.remove(cookie.name) else values[cookie.name] = cookie.value
-                        }
-                    }
-                    val next = values.entries.joinToString("; ") { "${it.key}=${it.value}" }
-                    if (next != cookieHeader) try { GooglePhotosCookies.validate(next) }
-                        catch (_: IllegalArgumentException) { throw ExtensionFailure("HTTP_401") }
-                    cookieHeader = next
-                    next.takeIf { it != persistedCookies }
-                }
-                if (changed != null) { updateCookies(changed); synchronized(cookiesLock) { persistedCookies = changed } }
+                receiveCookies(request.url, opened.response.headers)
                 source.readUtf8()
             } finally { cancel.cancel() }
         }
     }
 
-    suspend fun media(url: String): Opened {
-        var current = url
-        repeat(4) {
-            if (!GooglePhotosProtocol.allowedMedia(current)) throw ExtensionFailure("INVALID_RESPONSE")
-            // Signed media URLs never receive the account's cookies or the RPC authentication header.
-            val opened = open(Request.Builder().url(current).build())
-            if (!opened.response.isRedirect) return opened
-            current = opened.response.header("Location")?.let { opened.response.request.url.resolve(it)?.toString() }
-                ?: run { opened.close(); throw ExtensionFailure("INVALID_RESPONSE") }
+    suspend fun media(url: String, trace: (String) -> Unit = {}): Opened {
+        var current = url.toHttpUrl()
+        repeat(8) { hop ->
+            val media = GooglePhotosProtocol.allowedMedia(current.toString())
+            val accounts = hop > 0 && current.isHttps && current.port == 443 && current.host == "accounts.google.com" &&
+                current.username.isEmpty() && current.password.isEmpty() && current.fragment == null
+            trace("Media target: host=${current.host}, allowed=${media || accounts}")
+            if (!media && !accounts) throw ExtensionFailure("INVALID_RESPONSE")
+            val firstParty = current.host in setOf("lh3.google.com", "photos.fife.usercontent.google.com", "accounts.google.com")
+            val request = Request.Builder().url(current).header("Referer", "https://photos.google.com$basePath")
+            if (firstParty) request.header("Cookie", jar.loadForRequest(current).joinToString("; ") { "${it.name}=${it.value}" })
+            val opened = open(request.build())
+            try {
+                if (firstParty) receiveCookies(current, opened.response.headers)
+                trace("Media HTTP: host=${current.host}, status=${opened.response.code}")
+                if (!opened.response.isRedirect) {
+                    if (accounts) throw ExtensionFailure("HTTP_401")
+                    return opened
+                }
+                current = opened.response.header("Location")?.let(current::resolve) ?: throw ExtensionFailure("INVALID_RESPONSE")
+            } catch (error: Exception) { opened.close(); throw error }
             opened.close()
         }
-        throw ExtensionFailure("INVALID_RESPONSE")
+        throw ExtensionFailure("HTTP_401")
     }
 
     private suspend fun open(request: Request) = open(http, request)
@@ -188,7 +209,7 @@ internal class GooglePhotosApi(
                                 .joinToString("; ") { "${it.name}=${it.value}" }
                             GooglePhotosCookies.validate(session)
                             // A fresh cookie jar contains exactly the user-selected account, hence account index 0.
-                            return@withContext GooglePhotosConfig(session)
+                            return@withContext GooglePhotosConfig(session, scopedCookies = cookies.toList())
                         } finally { cancel.cancel() }
                     }
                 }

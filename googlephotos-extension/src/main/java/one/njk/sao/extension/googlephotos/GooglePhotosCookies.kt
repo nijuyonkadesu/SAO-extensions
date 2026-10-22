@@ -1,9 +1,32 @@
 package one.njk.sao.extension.googlephotos
 
+import okhttp3.Cookie
+
 /** A user-supplied Google Photos session. Nothing is read from another app's storage. */
 internal object GooglePhotosCookies {
     private val name = Regex("[A-Za-z0-9_-]{1,80}")
     private val auth = setOf("SID", "__Secure-1PSID", "__Secure-3PSID")
+
+    fun scoped(input: String): List<Cookie> {
+        require(input.length <= 128 * 1024)
+        if (input.lineSequence().none { it.count { c -> c == '\t' } >= 6 }) return parse(input).split(';').map {
+            val pair = it.trim().split('=', limit = 2)
+            Cookie.Builder().name(pair[0]).value(pair[1]).hostOnlyDomain("photos.google.com").path("/").secure().build()
+        }
+        return input.lineSequence().mapNotNull { line ->
+            val row = line.removePrefix("#HttpOnly_").split('\t')
+            if (row.size != 7 || row[0].removePrefix(".") !in setOf("google.com", "photos.google.com", "accounts.google.com",
+                    "lh3.google.com", "photos.fife.usercontent.google.com")) return@mapNotNull null
+            val expiry = row[4].toLongOrNull() ?: return@mapNotNull null
+            if (expiry != 0L && expiry <= System.currentTimeMillis() / 1000) return@mapNotNull null
+            Cookie.Builder().name(row[5]).value(row[6]).path(row[2]).apply {
+                if (row[1] == "TRUE") domain(row[0].removePrefix(".")) else hostOnlyDomain(row[0])
+                if (row[3] == "TRUE") secure()
+                if (line.startsWith("#HttpOnly_")) httpOnly()
+                if (expiry > 0) expiresAt(expiry.coerceAtMost(Long.MAX_VALUE / 1000) * 1000)
+            }.build()
+        }.take(201).toList().also { require(it.size <= 200) }
+    }
 
     fun parse(input: String): String {
         require(input.length <= 128 * 1024)

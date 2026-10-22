@@ -76,14 +76,15 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
                     length += count
                 }
                 require(length < buffer.size)
-                GooglePhotosCookies.parse(String(buffer, 0, length, Charsets.UTF_8))
+                val text = String(buffer, 0, length, Charsets.UTF_8)
+                GooglePhotosCookies.parse(text) to GooglePhotosCookies.scoped(text)
             } ?: throw ExtensionFailure("INVALID_RESPONSE")
         }
-        mutable.value = state.value.copy(config = state.value.config.copy(cookies = cookies), working = false, status = R.string.session_imported)
+        mutable.value = state.value.copy(config = state.value.config.copy(cookies = cookies.first, scopedCookies = cookies.second), working = false, status = R.string.session_imported)
     }
     fun pasteSession(value: String) = work {
-        val cookies = withContext(Dispatchers.IO) { GooglePhotosCookies.parse(value) }
-        mutable.value = state.value.copy(config = state.value.config.copy(cookies = cookies), working = false, status = R.string.session_imported)
+        val cookies = withContext(Dispatchers.IO) { GooglePhotosCookies.parse(value) to GooglePhotosCookies.scoped(value) }
+        mutable.value = state.value.copy(config = state.value.config.copy(cookies = cookies.first, scopedCookies = cookies.second), working = false, status = R.string.session_imported)
     }
     fun save() = work {
         val draft = state.value

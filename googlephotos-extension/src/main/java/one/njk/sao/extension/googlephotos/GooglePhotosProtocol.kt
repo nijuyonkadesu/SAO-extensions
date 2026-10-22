@@ -115,14 +115,20 @@ internal object GooglePhotosProtocol {
         }.associateBy { it.key }
     }
 
-    fun download(data: JSONArray, original: Boolean) = optionalString(data, if (original) 7 else 1)
-        ?.takeIf(::allowedMedia) ?: throw ExtensionFailure("INVALID_RESPONSE")
+    fun download(data: JSONArray, original: Boolean): String {
+        val value = optionalString(data, if (original) 7 else 1)
+        if (value != null && allowedMedia(value)) return value
+        android.util.Log.w("SAO.GooglePhotos", "Download URL rejected: original=$original, " +
+            "editedType=${data.opt(1)?.javaClass?.simpleName}, originalType=${data.opt(7)?.javaClass?.simpleName}, " +
+            "host=${value?.toHttpUrlOrNull()?.host}, length=${value?.length}")
+        throw ExtensionFailure("INVALID_RESPONSE")
+    }
 
     fun allowedMedia(value: String): Boolean {
         val url = value.toHttpUrlOrNull() ?: return false
         return url.isHttps && url.port == 443 && url.username.isEmpty() && url.password.isEmpty() && url.fragment == null &&
             (url.host.endsWith(".googleusercontent.com") || url.host.endsWith(".ggpht.com") ||
-                url.host == "photos.fife.usercontent.google.com") && value.length <= 4096
+                url.host in setOf("photos.fife.usercontent.google.com", "lh3.google.com")) && value.length <= 4096
     }
 
     fun preview(value: String): String {
