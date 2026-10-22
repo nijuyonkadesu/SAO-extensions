@@ -2,6 +2,8 @@ package one.njk.sao.extension.googlephotos
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 import one.njk.sao.source.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -11,6 +13,16 @@ class GooglePhotosExtensionService : ExtensionService() {
     override fun descriptor() = JSONObject().put("name", "Google Photos")
     override fun failure(error: Exception) = GooglePhotosRuntime.failure(error)
     override suspend fun execute(profile: String, operation: String, payload: JSONObject, caller: String): JSONObject {
+        try { return executeRequest(profile, operation, payload, caller) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) {
+            // Stack locations locate parser failures without exposing response bodies, filenames or credentials.
+            Log.w("SAO.GooglePhotos", "Source $operation failed: ${GooglePhotosRuntime.failure(error).code} (${error.javaClass.simpleName})\n" +
+                error.stackTrace.take(8).joinToString("\n") { "at $it" })
+            throw error
+        }
+    }
+    private suspend fun executeRequest(profile: String, operation: String, payload: JSONObject, caller: String): JSONObject {
         val store = runtime.profiles
         if (operation == ExtensionProtocol.PROFILES) {
             val all = store.list()

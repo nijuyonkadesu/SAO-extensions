@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 import io.github.libxposed.api.XposedModule;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
@@ -36,6 +37,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
         main = new Handler(Looper.getMainLooper());
         modulePackage = getModuleApplicationInfo().packageName;
         moduleUid = getModuleApplicationInfo().uid;
+        Log.i("SAO.GooglePhotos", "Vector module loaded in Google Photos");
     }
     @Override public void onPackageReady(PackageReadyParam param) {
         if (main == null || installed || !PHOTOS.equals(param.getPackageName())) return;
@@ -60,8 +62,9 @@ public final class GooglePhotosVectorModule extends XposedModule {
                 return result;
             });
             installed = true;
-        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-            // No raw exceptions or account data are logged in the hooked app.
+            Log.i("SAO.GooglePhotos", "Lifecycle hooks installed");
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+            Log.w("SAO.GooglePhotos", "Lifecycle hook setup failed: " + error.getClass().getSimpleName());
         }
     }
 
@@ -73,6 +76,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
         if (nonce == null || !nonce.matches("[A-Za-z0-9_-]{43}") || nonce.equals(lastNonce)) return;
         intent.removeExtra(EXTRA);
         pendingNonce = nonce;
+        Log.i("SAO.GooglePhotos", "Connect intent received");
     }
     private void connect(Activity activity, Intent intent) {
         if (!PHOTOS.equals(activity.getPackageName()) || activity.isFinishing() || activity.isDestroyed()) return;
@@ -103,19 +107,26 @@ public final class GooglePhotosVectorModule extends XposedModule {
         }
         void start() {
             try {
-                if (context.getPackageManager().getApplicationInfo(modulePackage, 0).uid != moduleUid) { close(); return; }
+                if (context.getPackageManager().getApplicationInfo(modulePackage, 0).uid != moduleUid) {
+                    Log.w("SAO.GooglePhotos", "Extension UID check failed"); close(); return;
+                }
                 bound = context.bindService(new Intent().setComponent(new ComponentName(modulePackage,
                     modulePackage + ".GooglePhotosAuthService")), this, Context.BIND_AUTO_CREATE);
-                if (!bound) close(); else main.postDelayed(timeout, 110_000);
-            } catch (Exception ignored) { close(); }
+                if (!bound) { Log.w("SAO.GooglePhotos", "Auth service bind rejected"); close(); }
+                else { Log.i("SAO.GooglePhotos", "Auth service bind requested"); main.postDelayed(timeout, 110_000); }
+            } catch (Exception error) {
+                Log.w("SAO.GooglePhotos", "Auth service bind failed: " + error.getClass().getSimpleName()); close();
+            }
         }
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
             if (finished) return;
+            Log.i("SAO.GooglePhotos", "Auth service connected");
             broker = IGooglePhotosAuthBroker.Stub.asInterface(binder);
             io.execute(() -> {
                 boolean allowed;
                 try { allowed = broker.claim(nonce); } catch (Exception ignored) { allowed = false; }
                 boolean accepted = allowed;
+                Log.i("SAO.GooglePhotos", accepted ? "Auth request accepted" : "Auth request rejected");
                 main.post(() -> { if (accepted && !finished) choose(); else close(); });
             });
         }
@@ -141,6 +152,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
                     .setItems(names, (d, index) -> token(current, accounts[index]))
                     .setNegativeButton(android.R.string.cancel, (d, which) -> finish("", "", "CONNECT_CANCELLED"))
                     .setOnCancelListener(d -> finish("", "", "CONNECT_CANCELLED")).show();
+                Log.i("SAO.GooglePhotos", "Account chooser displayed");
             } catch (Exception ignored) { finish("", "", "AUTH_UNSUPPORTED"); }
         }
         void token(Activity current, Account account) {
@@ -148,6 +160,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
                 // A short-lived web-login URL, never a Google master/refresh token or account database export.
                 // Photos' own WebAuth flow uses this AccountManager token type.
                 String scope = "weblogin:service=gaia&continue=" + android.net.Uri.encode("https://photos.google.com/");
+                Log.i("SAO.GooglePhotos", "Native web login requested");
                 auth = AccountManager.get(context).getAuthToken(account, scope, new Bundle(), current, future -> {
                     try {
                         String url = future.getResult().getString(AccountManager.KEY_AUTHTOKEN);
@@ -168,6 +181,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
         }
         void finish(String account, String url, String failure) {
             if (finished) return;
+            Log.i("SAO.GooglePhotos", failure.isEmpty() ? "Native web login completed" : "Native connection failed: " + failure);
             finished = true;
             main.removeCallbacks(timeout);
             io.execute(() -> {

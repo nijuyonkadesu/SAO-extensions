@@ -64,6 +64,7 @@ internal class GooglePhotosApi(
         return try {
             val response = text(Request.Builder().url(url).header("Origin", "https://photos.google.com")
                 .header("Referer", "https://photos.google.com$basePath").post(body).build(), JSON_LIMIT)
+            android.util.Log.i("SAO.GooglePhotos", "RPC ${request.rpc} response received")
             GooglePhotosProtocol.envelope(response, listOf(request)).getValue(request.id)
         } catch (error: ExtensionFailure) {
             if (error.code in setOf("HTTP_401", "HTTP_403")) bootstrapLock.withLock { globals = null }

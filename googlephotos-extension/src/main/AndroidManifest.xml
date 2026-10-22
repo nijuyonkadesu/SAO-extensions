@@ -27,6 +27,14 @@
             android:exported="true" />
         <!-- Google Photos cannot hold our signature permission. Binder verifies its UID, Google certificate and one-use nonce. -->
         <service android:name=".GooglePhotosAuthService" android:exported="true" tools:ignore="ExportedService" />
+        <!-- A temporary read grant for an empty marker makes this package visible to Photos. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.connect"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/connect_paths" />
+        </provider>
         <provider
             android:name=".GooglePhotosMediaProvider"
             android:authorities="${applicationId}.media"

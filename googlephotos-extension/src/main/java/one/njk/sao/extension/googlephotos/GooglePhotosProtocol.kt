@@ -76,7 +76,14 @@ internal object GooglePhotosProtocol {
             val row = rows.getJSONArray(index)
             val key = row.getString(0)
             val thumbnail = nested(row, 1, 0) as? String ?: throw ExtensionFailure("INVALID_RESPONSE")
-            if (!validKey(key) || !allowedMedia(thumbnail)) throw ExtensionFailure("INVALID_RESPONSE")
+            if (!validKey(key) || !allowedMedia(thumbnail)) {
+                val url = thumbnail.toHttpUrlOrNull()
+                android.util.Log.w("SAO.GooglePhotos", "Item format rejected: keyValid=${validKey(key)}, keyLength=${key.length}, " +
+                    "thumbnailHost=${url?.host}, https=${url?.isHttps}, port=${url?.port}, " +
+                    "userinfo=${url?.let { it.username.isNotEmpty() || it.password.isNotEmpty() }}, " +
+                    "fragment=${url?.fragment != null}, urlLength=${thumbnail.length}")
+                throw ExtensionFailure("INVALID_RESPONSE")
+            }
             Row(key, thumbnail, (row.opt(2) as? Number)?.toLong() ?: 0,
                 (row.opt(5) as? Number)?.toLong() ?: 0,
                 nested(row, -1, "76647426", 0) is Number,
@@ -114,7 +121,8 @@ internal object GooglePhotosProtocol {
     fun allowedMedia(value: String): Boolean {
         val url = value.toHttpUrlOrNull() ?: return false
         return url.isHttps && url.port == 443 && url.username.isEmpty() && url.password.isEmpty() && url.fragment == null &&
-            (url.host.endsWith(".googleusercontent.com") || url.host.endsWith(".ggpht.com")) && value.length <= 4096
+            (url.host.endsWith(".googleusercontent.com") || url.host.endsWith(".ggpht.com") ||
+                url.host == "photos.fife.usercontent.google.com") && value.length <= 4096
     }
 
     fun preview(value: String): String {

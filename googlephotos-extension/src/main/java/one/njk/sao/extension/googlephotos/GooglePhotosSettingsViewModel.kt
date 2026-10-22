@@ -48,13 +48,21 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
             app.packageManager.getLaunchIntentForPackage(GooglePhotosConnect.PHOTOS) ?: throw ExtensionFailure("ACCOUNT_MISSING")
         }
         val pending = GooglePhotosConnect.begin().also { handshake = it }
+        var visibility: Uri? = null
         try {
+            withContext(Dispatchers.IO) { visibility = GooglePhotosVisibility.grant(app) }
+            android.util.Log.i("SAO.GooglePhotos", "Connect requested; temporary package visibility granted")
             mutable.value = state.value.copy(status = R.string.waiting_vector)
             launch(intent.putExtra(GooglePhotosConnect.EXTRA, pending.nonce).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
             val result = withTimeout(115_000) { pending.result.await() }
+            android.util.Log.i("SAO.GooglePhotos", "Native login received; exchanging web session")
             val config = GooglePhotosApi.connect(result.loginUrl, result.account, runtime.http())
             mutable.value = state.value.copy(config = config, working = false, status = R.string.connected)
-        } finally { GooglePhotosConnect.cancel(pending.nonce); handshake = null }
+            android.util.Log.i("SAO.GooglePhotos", "Web session connected")
+        } finally {
+            GooglePhotosConnect.cancel(pending.nonce); handshake = null
+            withContext(NonCancellable + Dispatchers.IO) { visibility?.let { GooglePhotosVisibility.revoke(app, it) } }
+        }
     }
     fun cancelConnection() { handshake?.result?.completeExceptionally(ExtensionFailure("CONNECT_CANCELLED")) }
     fun import(uri: Uri) = work {
@@ -112,10 +120,14 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
         mutable.value = state.value.copy(working = true, status = R.string.working)
         viewModelScope.launch {
             try { block() }
-            catch (_: TimeoutCancellationException) { mutable.value = state.value.copy(working = false, status = R.string.vector_missing) }
+            catch (_: TimeoutCancellationException) {
+                android.util.Log.w("SAO.GooglePhotos", "Native connection timed out")
+                mutable.value = state.value.copy(working = false, status = R.string.vector_missing)
+            }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 val code = GooglePhotosRuntime.failure(error).code
+                android.util.Log.w("SAO.GooglePhotos", "Settings operation failed: $code (${error.javaClass.simpleName})")
                 val message = when {
                     error is android.content.pm.PackageManager.NameNotFoundException || code == "ACCOUNT_MISSING" -> R.string.photos_missing
                     error is IllegalArgumentException -> R.string.invalid_configuration
