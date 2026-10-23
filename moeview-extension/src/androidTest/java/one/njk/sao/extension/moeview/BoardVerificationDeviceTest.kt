@@ -11,18 +11,21 @@ import one.njk.sao.moeview.data.Board
 import org.junit.Assert.*
 import org.junit.Assume
 import org.junit.Test
+import java.util.UUID
 
 /** Explicit public-site probe. It never clicks or automates the challenge or uses personal credentials. */
 class BoardVerificationDeviceTest {
     @Test fun visibleVerificationAndNativeHandoff(): Unit=runBlocking {
         val instrumentation=InstrumentationRegistry.getInstrumentation(); val app=instrumentation.targetContext
         Assume.assumeTrue(InstrumentationRegistry.getArguments().getString("verifyBoard")=="true")
-        ActivityScenario.launch<BoardVerificationActivity>(Intent(app,BoardVerificationActivity::class.java).putExtra("board",Board.DANBOORU.name)).use { scenario ->
+        val request=BoardVerificationRequest(UUID.randomUUID().toString(),UUID.randomUUID().toString(),Board.DANBOORU)
+        ActivityScenario.launch<BoardVerificationActivity>(request.intent(app)).use { scenario ->
             var cookies=""; var agent=""
             val until=SystemClock.elapsedRealtime()+15_000
             do {
                 scenario.onActivity { activity ->
                     val web=activity.findViewById<WebView>(R.id.web)
+                    if(!web.settings.javaScriptEnabled) return@onActivity
                     assertTrue(web.settings.javaScriptEnabled); assertFalse(web.settings.allowFileAccess); assertFalse(web.settings.allowContentAccess)
                     cookies=MoeviewAuthentication.cloudflareCookies(CookieManager.getInstance().getCookie(Board.DANBOORU.directBase).orEmpty())
                     agent=web.settings.userAgentString

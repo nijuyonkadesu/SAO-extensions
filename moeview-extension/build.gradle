@@ -22,6 +22,7 @@ android {
     sourceSets { main { assets.srcDir rootProject.file("third_party/material-symbols") } }
 }
 dependencies {
+    implementation project(':extension-runtime')
     implementation libs.source.api
     implementation libs.source.settings
     implementation project(':moeview')

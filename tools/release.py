@@ -69,6 +69,13 @@ def vector_svg(vector):
 
 
 def prepare():
+    # Gradle validates inputs for every published module; existing output files alone are not provenance.
+    commit = run("git", "rev-parse", "HEAD")
+    clean = not run("git", "status", "--porcelain")
+    build_tasks = [f":{module}:assembleRelease" for _, _, _, module, _ in SOURCES]
+    subprocess.run([str(ROOT / "gradlew"), *build_tasks], cwd=ROOT, check=True)
+    if run("git", "rev-parse", "HEAD") != commit:
+        raise RuntimeError("Source commit changed while release inputs were built")
     sdk = Path(os.environ.get("ANDROID_HOME", Path.home() / "Android/Sdk"))
     tools = sorted((sdk / "build-tools").glob("*/apksigner"), key=lambda p: tuple(int(n) for n in p.parent.name.split(".") if n.isdigit()))[-1].parent
     output = ROOT / "build/distribution"
@@ -109,6 +116,11 @@ def prepare():
                         "releaseUrl": f"https://github.com/{REPOSITORY}/releases/tag/{ident}-v{version}-debug"})
     catalog = {"schemaVersion": 1, "name": "SAO extensions", "extensions": entries}
     (catalog_dir / "index.json").write_text(json.dumps(catalog, indent=2) + "\n")
+    (output / "build-provenance.json").write_text(json.dumps({
+        "commit": commit, "clean": clean and not run("git", "status", "--porcelain"),
+        "tasks": build_tasks,
+        "artifacts": {a["url"].rsplit('/', 1)[-1]: a["sha256"] for e in entries for a in e["artifacts"]},
+    }, indent=2) + "\n")
     (catalog_dir / "repo.json").write_text(json.dumps({"name": "SAO extensions", "schemaVersion": 1,
         "index": f"https://raw.githubusercontent.com/{REPOSITORY}/repo/index.json", "website": f"https://github.com/{REPOSITORY}"}, indent=2) + "\n")
     cards = ''.join(f'<li><img src="icons/{e["id"]}.svg" width="72" height="72" alt=""><h2>{html.escape(e["name"])}</h2><p>{html.escape(e["description"])}</p><p>Version {html.escape(e["versionName"])} · Development signing</p>' +
@@ -124,6 +136,15 @@ def publish(catalog):
     commit = run("git", "rev-parse", "HEAD")
     if run("git", "status", "--porcelain"):
         raise RuntimeError("Commit the tested source before publishing")
+    provenance = json.loads((ROOT / "build/distribution/build-provenance.json").read_text())
+    if provenance["commit"] != commit or not provenance["clean"]:
+        raise RuntimeError("Rebuild release inputs from the clean commit being published")
+    for entry in catalog["extensions"]:
+        for artifact in entry["artifacts"]:
+            name = artifact["url"].rsplit('/', 1)[-1]
+            expected = artifact["sha256"]
+            if provenance["artifacts"].get(name) != expected or hashlib.sha256((ROOT / "build/distribution" / name).read_bytes()).hexdigest() != expected:
+                raise RuntimeError(f"Release artifact changed after its validated build: {name}")
     for entry in catalog["extensions"]:
         tag = entry["releaseUrl"].rsplit('/', 1)[-1]
         lookup = subprocess.run(["gh", "api", f"repos/{REPOSITORY}/releases/tags/{tag}"], capture_output=True, text=True)

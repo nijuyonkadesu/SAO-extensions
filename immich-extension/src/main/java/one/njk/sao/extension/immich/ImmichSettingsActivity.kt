@@ -20,8 +20,12 @@ import one.njk.sao.source.settings.SourceSettingsGuard
 
 class ImmichSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity() {
     private val model by lazy { ViewModelProvider(this)[ImmichSettingsViewModel::class.java] }
+    private var sourceCreated=false
     override fun onSourceCreate(savedInstanceState: Bundle?,caller: String) {
+        sourceCreated=true
         val binding = ActivityImmichSettingsBinding.inflate(layoutInflater); setContentView(binding.root)
+        // The encrypted ViewModel draft is authoritative, including credentials and partial input.
+        listOf(binding.sourceName,binding.serverUrl,binding.apiKey,binding.album).forEach { it.isSaveEnabled=false }
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view,insets ->
             val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()); view.setPadding(bars.left,bars.top,bars.right,bars.bottom); insets
         }
@@ -59,5 +63,17 @@ class ImmichSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivit
                 setResult(RESULT_OK,Intent().putExtra(ExtensionProtocol.PROFILE,model.profileId)); finish()
             }
         } } }
+    }
+    override fun onPause() {
+        if(sourceCreated) model.checkpoint(discard=isFinishing)
+        super.onPause()
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        if(sourceCreated) model.checkpoint()
+        super.onSaveInstanceState(outState)
+    }
+    override fun onDestroy() {
+        if(sourceCreated && isFinishing) model.checkpoint(discard=true)
+        super.onDestroy()
     }
 }

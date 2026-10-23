@@ -10,6 +10,8 @@ import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import one.njk.sao.extension.moeview.databinding.ActivityMoeviewSettingsBinding
 import one.njk.sao.moeview.data.Board
 import one.njk.sao.moeview.data.SfwMode
@@ -18,14 +20,19 @@ import one.njk.sao.source.settings.SourceSettingsGuard
 
 class MoeviewSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity() {
     private val model by lazy { ViewModelProvider(this)[MoeviewSettingsViewModel::class.java] }
+    private var sourceCreated=false
+    private var verificationLaunch: Job?=null
     private val verification=registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data=result.data
-        if(result.resultCode==RESULT_OK && data?.getStringExtra("board")==model.state.value.config.board.name) model.configure {
-            it.copy(clearance=data.getStringExtra("cookies").orEmpty(),browserAgent=data.getStringExtra("agent").orEmpty())
-        }
+        if(result.resultCode==RESULT_OK && data!=null) {
+            model.completeVerification(data.getStringExtra(BoardVerificationRequest.RESULT))
+        } else model.cancelVerification()
     }
     override fun onSourceCreate(savedInstanceState: Bundle?,caller: String) {
+        sourceCreated=true
         val binding=ActivityMoeviewSettingsBinding.inflate(layoutInflater); setContentView(binding.root)
+        listOf(binding.sourceName,binding.baseTags,binding.board,binding.rating,binding.account,binding.apiKey,binding.useProxy)
+            .forEach { it.isSaveEnabled=false }
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view,insets ->
             val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()); view.setPadding(bars.left,bars.top,bars.right,bars.bottom); insets
         }
@@ -42,7 +49,15 @@ class MoeviewSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivi
         binding.rating.setOnItemClickListener { _,_,index,_ -> model.configure { it.copy(rating=SfwMode.entries[index]) } }
         binding.useProxy.setOnCheckedChangeListener { _,value -> if(!rendering) model.configure { it.copy(proxy=value) } }
         binding.clearVerification.setOnClickListener { model.configure { it.copy(clearance="",browserAgent="") } }
-        binding.verifyCloudflare.setOnClickListener { verification.launch(Intent(this,BoardVerificationActivity::class.java).putExtra("board",model.state.value.config.board.name)) }
+        binding.verifyCloudflare.setOnClickListener {
+            if(verificationLaunch?.isActive==true) return@setOnClickListener
+            val request=model.beginVerification() ?: return@setOnClickListener
+            verificationLaunch=lifecycleScope.launch {
+                try { model.checkpoint()?.await(); verification.launch(request.intent(this@MoeviewSettingsActivity)) }
+                catch(cancelled: CancellationException) { throw cancelled }
+                catch(_: Exception) { model.cancelVerification() }
+            }
+        }
         binding.testConnection.setOnClickListener { model.check() }; binding.saveConnection.setOnClickListener { model.save() }
         binding.deleteSource.setOnClickListener { model.delete() }; binding.deleteSource.isVisible=model.editing!=null
         lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.STARTED) { model.state.collect { state ->
@@ -66,5 +81,17 @@ class MoeviewSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivi
             binding.status.setText(state.status); binding.progress.isVisible=state.working || !state.loaded
             if(state.finished) { setResult(RESULT_OK,Intent().putExtra(ExtensionProtocol.PROFILE,model.profile)); finish() }
         } } }
+    }
+    override fun onPause() {
+        if(sourceCreated) model.checkpoint(discard=isFinishing)
+        super.onPause()
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        if(sourceCreated) model.checkpoint()
+        super.onSaveInstanceState(outState)
+    }
+    override fun onDestroy() {
+        if(sourceCreated && isFinishing) model.checkpoint(discard=true)
+        super.onDestroy()
     }
 }

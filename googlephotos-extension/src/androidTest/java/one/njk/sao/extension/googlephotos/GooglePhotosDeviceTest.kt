@@ -406,7 +406,7 @@ class GooglePhotosDeviceTest {
         assertTrue(app.bindService(Intent(app, GooglePhotosAuthService::class.java), connection, android.content.Context.BIND_AUTO_CREATE))
         try {
             val broker = IGooglePhotosAuthBroker.Stub.asInterface(withTimeout(5000) { connected.await() })
-            assertThrows(SecurityException::class.java) { broker.claim(pending.nonce) }
+            assertThrows(SecurityException::class.java) { broker.claim(pending.nonce,null) }
         } finally { app.unbindService(connection) }
     }
 

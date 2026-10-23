@@ -24,6 +24,7 @@ android {
 }
 
 dependencies {
+    implementation project(':extension-runtime')
     implementation libs.source.api
     implementation libs.source.settings
     implementation libs.okhttp

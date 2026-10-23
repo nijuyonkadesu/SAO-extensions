@@ -18,24 +18,33 @@ internal object GooglePhotosConnect {
     data class Result(val account: String, val loginUrl: String)
     class Pending(val nonce: String, val started: Long, val result: CompletableDeferred<Result>, val expectedAccount: String?) {
         var claimed = false
+        var cancellation: IGooglePhotosAuthCancellation? = null
+        var death: IBinder.DeathRecipient? = null
     }
     private var pending: Pending? = null
     @Synchronized fun begin(expectedAccount: String? = null): Pending {
-        pending?.result?.completeExceptionally(ExtensionFailure("CONNECT_CANCELLED"))
+        pending?.let { cancel(it.nonce) }
         return Pending(android.util.Base64.encodeToString(ByteArray(32).also(SecureRandom()::nextBytes),
             android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING),
             SystemClock.elapsedRealtime(), CompletableDeferred(), expectedAccount).also { pending = it }
     }
-    @Synchronized fun claim(nonce: String): Boolean {
+    @Synchronized fun claim(nonce: String, cancellation: IGooglePhotosAuthCancellation? = null): Boolean {
         val active = active(nonce) ?: return false
         if (active.claimed) return false
         active.claimed = true
+        if(cancellation!=null) {
+            val death=IBinder.DeathRecipient { cancel(nonce) }
+            try { cancellation.asBinder().linkToDeath(death,0) }
+            catch (_: android.os.RemoteException) { active.claimed=false; return false }
+            active.cancellation=cancellation; active.death=death
+        }
         return true
     }
-    @Synchronized fun complete(nonce: String, account: String, url: String, failure: String) {
-        val active = active(nonce)?.takeIf { it.claimed } ?: return
+    @Synchronized fun complete(nonce: String, account: String, url: String, failure: String): Boolean {
+        val active = active(nonce)?.takeIf { it.claimed } ?: return false
         pending = null
-        if (failure.isNotEmpty()) active.result.completeExceptionally(ExtensionFailure(
+        unlink(active)
+        return if (failure.isNotEmpty()) active.result.completeExceptionally(ExtensionFailure(
             failure.takeIf { it in setOf("ACCOUNT_MISSING", "CONNECT_CANCELLED", "AUTH_UNSUPPORTED", "HTTP_401") } ?: "HTTP_401"))
         else if (active.expectedAccount != null && !active.expectedAccount.equals(account, ignoreCase = true))
             active.result.completeExceptionally(ExtensionFailure("HTTP_401"))
@@ -43,7 +52,13 @@ internal object GooglePhotosConnect {
         else active.result.complete(Result(account, url))
     }
     @Synchronized fun cancel(nonce: String) {
-        if (pending?.nonce == nonce) { pending?.result?.cancel(); pending = null }
+        val current=pending?.takeIf { it.nonce==nonce } ?: return
+        pending=null; current.result.cancel(); unlink(current)
+        try { current.cancellation?.cancel(nonce) } catch (_: android.os.RemoteException) { }
+    }
+    private fun unlink(value: Pending) {
+        value.death?.let { death -> runCatching { value.cancellation?.asBinder()?.unlinkToDeath(death,0) } }
+        value.death=null
     }
     private fun active(nonce: String) = pending?.takeIf {
         nonce == it.nonce && !it.result.isCompleted && SystemClock.elapsedRealtime() - it.started in 0..120_000
@@ -66,11 +81,14 @@ class GooglePhotosAuthService : Service() {
         if (!GooglePhotosConnect.isPhotos(packageManager, Binder.getCallingUid())) throw SecurityException("Google Photos only")
     }
     private val broker = object : IGooglePhotosAuthBroker.Stub() {
-        override fun claim(nonce: String): Boolean { authorize(); return nonce.length == 43 && GooglePhotosConnect.claim(nonce) }
-        override fun complete(nonce: String, account: String, loginUrl: String, failure: String) {
+        override fun claim(nonce: String, cancellation: IGooglePhotosAuthCancellation?): Boolean {
+            authorize(); return nonce.length == 43 && cancellation!=null && GooglePhotosConnect.claim(nonce,cancellation)
+        }
+        override fun complete(nonce: String, account: String, loginUrl: String, failure: String): Boolean {
             authorize()
-            if (nonce.length == 43 && account.length <= 320 && loginUrl.length <= 16_384 && failure.length <= 80)
+            return if (nonce.length == 43 && account.length <= 320 && loginUrl.length <= 16_384 && failure.length <= 80)
                 GooglePhotosConnect.complete(nonce, account, loginUrl, failure)
+            else false
         }
     }
     override fun onBind(intent: Intent): IBinder = broker

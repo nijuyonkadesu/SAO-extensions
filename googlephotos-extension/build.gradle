@@ -24,6 +24,7 @@ android {
 }
 
 dependencies {
+    implementation project(':extension-runtime')
     // The same API used by SAO; supplied by Vector, absent from this APK's runtime dependencies.
     compileOnly libs.libxposed.api
     implementation libs.source.api

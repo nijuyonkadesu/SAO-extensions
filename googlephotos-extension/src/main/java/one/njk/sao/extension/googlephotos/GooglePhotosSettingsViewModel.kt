@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import one.njk.sao.source.ExtensionFailure
 import one.njk.sao.source.ExtensionProtocol
 import java.util.UUID
+import one.njk.sao.extension.runtime.EncryptedDraftStore
+import org.json.JSONObject
 
 internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedStateHandle) : AndroidViewModel(app) {
     data class State(val loaded: Boolean = false, val working: Boolean = true, val name: String = "Google Photos",
@@ -21,7 +23,10 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
     private val mutable = MutableStateFlow(State())
     val state = mutable.asStateFlow()
     val editing: String? = saved[ExtensionProtocol.PROFILE]
-    val profile = editing ?: UUID.randomUUID().toString()
+    val profile = editing ?: saved.get<String>("draft_profile") ?: UUID.randomUUID().toString().also { saved["draft_profile"]=it }
+    private val drafts=EncryptedDraftStore(app,"googlephotos")
+    private val draftId = saved.get<String>("private_draft") ?: UUID.randomUUID().toString().also { saved["private_draft"]=it }
+    private var draftClosed = false
     private var previous: GooglePhotosProfile? = null
     private var credentialsEdited = false
     val hasChanges get() = state.value.loaded && (state.value.name != (previous?.name ?: "Google Photos") ||
@@ -32,12 +37,31 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
         viewModelScope.launch {
             try {
                 previous = editing?.let { runtime.profiles.get(it) }
-                mutable.value = State(true, false, previous?.name ?: "Google Photos", previous?.config ?: GooglePhotosConfig())
+                val draft=drafts.read(draftId)?.also { require(it.getString("profile")==profile) }
+                credentialsEdited=draft?.optBoolean("credentialsEdited") ?: false
+                var config=draft?.optJSONObject("config")?.let { GooglePhotosConfig.read(it,validate=false) } ?: previous?.config ?: GooglePhotosConfig()
+                if(!credentialsEdited) previous?.config?.let { current ->
+                    config=config.copy(cookies=current.cookies,scopedCookies=current.scopedCookies,
+                        nativeAccount=current.nativeAccount,nativeSession=current.nativeSession)
+                }
+                mutable.value = State(true, false, draft?.optString("name") ?: previous?.name ?: "Google Photos", config)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { mutable.value = State(working = false, status = R.string.storage_error) }
         }
     }
     fun name(value: String) { if (!state.value.working) mutable.value = state.value.copy(name = value) }
+    fun checkpoint(discard: Boolean=false): Deferred<Unit>? {
+        val current=state.value
+        if(discard) draftClosed=true
+        if(!current.loaded && !draftClosed) return null
+        val value=if(draftClosed || current.finished) null else JSONObject().put("profile",profile).put("name",current.name)
+            .put("config",current.config.json()).put("credentialsEdited",credentialsEdited)
+        return drafts.checkpoint(draftId,value).also { pending -> pending.invokeOnCompletion { error ->
+            if(error!=null && error !is CancellationException) viewModelScope.launch {
+                mutable.value=state.value.copy(status=R.string.storage_error)
+            }
+        } }
+    }
     private fun dirtyConfig(): GooglePhotosConfig {
         val config=state.value.config
         val baseline=previous?.config ?: GooglePhotosConfig()
@@ -69,6 +93,7 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
             val config = GooglePhotosApi.connect(result.loginUrl, result.account, runtime.http())
             credentialsEdited=true
             mutable.value = state.value.copy(config = config, working = false, status = R.string.connected)
+            checkpoint()?.await()
             android.util.Log.i("SAO.GooglePhotos", "Web session connected")
         } finally {
             GooglePhotosConnect.cancel(pending.nonce); handshake = null
@@ -107,6 +132,7 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
         val (_,config)=useDraft(draft.config) { it.check() }
         runtime.profiles.save(profile, draft.name, config,preserveCurrentSession=previous!=null && !credentialsEdited)
         runtime.clearSessions()
+        checkpoint(discard=true)?.await()
         mutable.value = draft.copy(working = false, finished = true)
     }
     fun check() = work {
@@ -135,6 +161,7 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
     fun delete() = work {
         runtime.profiles.get(profile).let { runtime.profiles.delete(profile, it.revision) }
         runtime.clearSessions()
+        checkpoint(discard=true)?.await()
         mutable.value = state.value.copy(working = false, finished = true)
     }
     private fun work(block: suspend () -> Unit) {

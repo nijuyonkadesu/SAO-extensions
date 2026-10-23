@@ -34,10 +34,11 @@ class FolderIndexer(context: Context, parameters: WorkerParameters) : CoroutineW
                     if(SystemClock.elapsedRealtime()>=deadline) { continueLater(library,false); return@index Result.success() }
                     try { discover(store,library,directory,generation,deadline) }
                     catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: SliceFinished) { continueLater(library,false); return@index Result.success() }
-                    catch (_: SecurityException) { store.folderError(id,directory.root,"PERMISSION_REQUIRED") }
-                    catch (_: Exception) { store.folderError(id,directory.root,"FOLDER_UNAVAILABLE") }
-                    store.directoryDone(id,directory)
+                    catch (_: IndexSliceFinished) { continueLater(library,false); return@index Result.success() }
+                    catch (_: SecurityException) { ensureActive(); store.folderError(id,directory.root,"PERMISSION_REQUIRED") }
+                    catch (_: Exception) { ensureActive(); store.folderError(id,directory.root,"FOLDER_UNAVAILABLE") }
+                    ensureActive(); if(!current(store,library)) return@index Result.success()
+                    store.directoryDone(id,directory,generation)
                 }
                 store.scanFinished(id,generation); scanning=false
             }
@@ -122,22 +123,7 @@ class FolderIndexer(context: Context, parameters: WorkerParameters) : CoroutineW
         val closer=launch(Dispatchers.Default,start=CoroutineStart.UNDISPATCHED) { try { awaitCancellation() } finally { signal.cancel() } }
         try {
             val cursor=applicationContext.contentResolver.query(uri,columns,null,null,null,signal) ?: throw java.io.IOException("Folder unavailable")
-            cursor.use { c ->
-                if(directory.position>0) c.moveToPosition(directory.position-1)
-                var position=directory.position
-                try { while(c.moveToNext()) {
-                ensureActive(); if(SystemClock.elapsedRealtime()>=deadline) throw SliceFinished()
-                val document=c.getString(0); val name=c.getString(1).orEmpty(); val reported=c.getString(2)
-                val path="${directory.path}/$name"
-                if(reported==DocumentsContract.Document.MIME_TYPE_DIR) store.enqueue(library.id,LocalStore.Directory(directory.root,document,path))
-                else LocalFormats.mime(name,reported)?.let { mime ->
-                    val media=DocumentsContract.buildDocumentUriUsingTree(Uri.parse(directory.root),document)
-                    store.discovered(library.id,generation,directory.root,media.toString(),name,path,mime,c.getLong(3),c.getLong(4),library.revision)
-                }
-                position++
-                if(position%100==0) store.checkpoint(library.id,directory,position)
-            } } finally { store.checkpoint(library.id,directory,position) }
-            }
+            cursor.use { FolderDiscovery.read(store,library,directory,generation,it,deadline) }
         } finally { closer.cancel() }
     }
     private suspend fun discoverSelection(store: LocalStore,library: Library,folder: Folder,directory: LocalStore.Directory,generation: String,deadline: Long)=coroutineScope {
@@ -149,24 +135,23 @@ class FolderIndexer(context: Context, parameters: WorkerParameters) : CoroutineW
                 val members=store.selectedMedia(library.id,folder.uri,position)
                 if(members.isEmpty()) break
                 for(member in members) {
-                    ensureActive(); if(SystemClock.elapsedRealtime()>=deadline) throw SliceFinished()
+                    ensureActive(); if(SystemClock.elapsedRealtime()>=deadline) throw IndexSliceFinished()
                     try {
                         val media=MediaImport.details(applicationContext,member,signal)
                         store.discovered(library.id,generation,folder.uri,member.uri,media.name,"${folder.name}/${media.name}",media.mime,media.modified,media.size,library.revision)
                     } catch(cancelled: CancellationException) { throw cancelled }
-                    catch(_: SecurityException) { store.folderError(library.id,folder.uri,"PERMISSION_REQUIRED") }
+                    catch(_: SecurityException) { ensureActive(); store.folderError(library.id,folder.uri,"PERMISSION_REQUIRED") }
                     catch(_: UnsupportedOperationException) { /* Unsupported files are excluded from discovery. */ }
-                    catch(_: Exception) { store.folderError(library.id,folder.uri,"FOLDER_UNAVAILABLE") }
+                    catch(_: Exception) { ensureActive(); store.folderError(library.id,folder.uri,"FOLDER_UNAVAILABLE") }
                     position++
-                    if(position%100==0) store.checkpoint(library.id,directory,position)
+                    if(position%100==0) store.checkpoint(library.id,directory,position,generation)
                 }
             }
-        } finally { store.checkpoint(library.id,directory,position); closer.cancel() }
+        } finally { store.checkpoint(library.id,directory,position,generation); closer.cancel() }
     }
     private fun continueLater(library: Library, analysisOnly: Boolean) {
         WorkManager.getInstance(applicationContext).enqueueUniqueWork(name(library.id),ExistingWorkPolicy.APPEND_OR_REPLACE,request(library,analysisOnly))
     }
-    private class SliceFinished : Exception()
     companion object {
         private const val PROFILE="profile"
         private const val REVISION="revision"
@@ -223,5 +208,33 @@ class LocalFolderCheckWorker(context: Context,parameters: WorkerParameters): Cor
             if(library.folders.any { it.kind==CollectionKind.TREE && !it.paused }) FolderIndexer.schedule(applicationContext,library)
         }
         Result.success()
+    }
+}
+
+internal class IndexSliceFinished : Exception()
+
+/** SAF ordering is unspecified and can change between queries. Only reaching EOF proves completion. */
+internal object FolderDiscovery {
+    private const val MIN_NEW_ENTRIES=100
+    suspend fun read(store: LocalStore, library: Library, directory: LocalStore.Directory, generation: String,
+        rows: android.database.Cursor, deadline: Long, now: () -> Long = SystemClock::elapsedRealtime) {
+        var progress=0
+        while(rows.moveToNext()) {
+            currentCoroutineContext().ensureActive()
+            val document=rows.getString(0); val name=rows.getString(1).orEmpty(); val reported=rows.getString(2)
+            val modified=rows.getLong(3); val size=rows.getLong(4)
+            val fingerprint=one.njk.sao.source.digest("$name\u0000$reported\u0000$modified\u0000$size")
+            if(store.visitDirectoryEntry(library.id,generation,directory,document,fingerprint) {
+                val path="${directory.path}/$name"
+                if(reported==DocumentsContract.Document.MIME_TYPE_DIR) store.enqueue(library.id,LocalStore.Directory(directory.root,document,path))
+                else LocalFormats.mime(name,reported)?.let { mime ->
+                    val media=DocumentsContract.buildDocumentUriUsingTree(Uri.parse(directory.root),document)
+                    store.discovered(library.id,generation,directory.root,media.toString(),name,path,mime,modified,size,library.revision)
+                }
+            }) progress++
+            // A large already-visited prefix must not consume every future slice. Skip it
+            // without asset writes, and always reconcile at least a small new batch before yielding.
+            if(progress>=MIN_NEW_ENTRIES && now()>=deadline) throw IndexSliceFinished()
+        }
     }
 }

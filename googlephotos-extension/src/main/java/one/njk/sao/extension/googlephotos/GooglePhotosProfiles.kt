@@ -42,7 +42,7 @@ data class GooglePhotosConfig(val cookies: String = "", val account: Int = 0,
             JSONObject().put("origin", "https://${it.domain}/").put("cookie", it.toString())
         }))
     companion object {
-        fun read(json: JSONObject) = GooglePhotosConfig(json.getString("cookies"), json.getInt("account"),
+        fun read(json: JSONObject, validate: Boolean = true) = GooglePhotosConfig(json.getString("cookies"), json.getInt("account"),
             json.optString("album"), json.optString("albumName"), json.optJSONArray("scopedCookies")?.let { rows ->
                 require(rows.length() <= 200)
                 List(rows.length()) { i -> rows.getJSONObject(i).let {
@@ -50,7 +50,7 @@ data class GooglePhotosConfig(val cookies: String = "", val account: Int = 0,
                     require(origin.isHttps && (origin.host == "google.com" || origin.host.endsWith(".google.com")))
                     requireNotNull(Cookie.parse(origin, it.getString("cookie")))
                 } }
-            }.orEmpty(), json.optString("nativeAccount"), json.optString("nativeSession")).also { it.validate() }
+            }.orEmpty(), json.optString("nativeAccount"), json.optString("nativeSession")).also { if(validate) it.validate() }
     }
 }
 

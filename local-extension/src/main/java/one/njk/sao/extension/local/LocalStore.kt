@@ -15,7 +15,7 @@ import one.njk.sao.source.digest
 import java.util.UUID
 
 /** Extension-private durable metadata. Callers perform all database work on IO. Originals stay in SAF. */
-class LocalStore private constructor(private val context: android.app.Application) : SQLiteOpenHelper(context, "local-library.db", null, 8) {
+class LocalStore private constructor(private val context: android.app.Application) : SQLiteOpenHelper(context, "local-library.db", null, 9) {
     val changes = MutableStateFlow(0L)
     init { setWriteAheadLoggingEnabled(true) }
     override fun onConfigure(db: SQLiteDatabase) { db.setForeignKeyConstraintsEnabled(true) }
@@ -30,6 +30,7 @@ class LocalStore private constructor(private val context: android.app.Applicatio
         db.execSQL("CREATE TRIGGER asset_delete AFTER DELETE ON assets BEGIN DELETE FROM metadata WHERE rowid=old.id; END")
         db.execSQL("CREATE TABLE scans(profile TEXT PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE, revision TEXT NOT NULL, generation TEXT NOT NULL)")
         db.execSQL("CREATE TABLE directories(profile TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE, root TEXT NOT NULL, document TEXT NOT NULL, path TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, position INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(profile,root,document))")
+        createScanMembership(db)
         createEmbeddings(db)
         createSelections(db)
     }
@@ -45,6 +46,10 @@ class LocalStore private constructor(private val context: android.app.Applicatio
         while(c.moveToNext()) add(c.getString(0))
     } }
     private fun createEmbeddings(db: SQLiteDatabase) { db.execSQL("CREATE TABLE embeddings(asset INTEGER PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE, model TEXT NOT NULL, signature TEXT NOT NULL, vector BLOB, error TEXT)") }
+    private fun createScanMembership(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE scan_roots(profile TEXT NOT NULL, root TEXT NOT NULL, generation TEXT NOT NULL, PRIMARY KEY(profile,root), FOREIGN KEY(profile,root) REFERENCES folders(profile,uri) ON DELETE CASCADE)")
+        db.execSQL("CREATE TABLE directory_entries(profile TEXT NOT NULL, root TEXT NOT NULL, parent TEXT NOT NULL, document TEXT NOT NULL, fingerprint TEXT NOT NULL, PRIMARY KEY(profile,root,parent,document), FOREIGN KEY(profile,root,parent) REFERENCES directories(profile,root,document) ON DELETE CASCADE)")
+    }
     override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) {
         if(old<2) {
             db.execSQL("ALTER TABLE folders ADD COLUMN paused INTEGER NOT NULL DEFAULT 0")
@@ -70,6 +75,12 @@ class LocalStore private constructor(private val context: android.app.Applicatio
                 if(batch.isEmpty()) break
                 batch.forEach { index(db,it) }; after=batch.last().id
             }
+        }
+        if(old<9 && new>=9) {
+            // Old row offsets cannot establish a complete listing of a mutable SAF directory.
+            // Restart discovery only; assets, user corrections and embeddings remain intact.
+            db.delete("directories",null,null); db.delete("scans",null,null)
+            createScanMembership(db)
         }
     }
     private var lastSignal = 0L
@@ -136,7 +147,7 @@ class LocalStore private constructor(private val context: android.app.Applicatio
                     put("profile",id); put("root",root); put("uri",uri); put("added",now)
                 },SQLiteDatabase.CONFLICT_IGNORE) }
             }
-            if(!same) { db.delete("scans","profile=?",arrayOf(id)); db.delete("directories","profile=?",arrayOf(id)); db.update("profiles",ContentValues().apply { put("last_scan",0) },"id=?",arrayOf(id)) }
+            if(!same) { db.delete("scans","profile=?",arrayOf(id)); db.delete("directories","profile=?",arrayOf(id)); db.delete("scan_roots","profile=?",arrayOf(id)); db.update("profiles",ContentValues().apply { put("last_scan",0) },"id=?",arrayOf(id)) }
             else db.update("scans",ContentValues().apply { put("revision",revision) },"profile=?",arrayOf(id))
         }
         changed(id); return library(id)
@@ -224,6 +235,7 @@ class LocalStore private constructor(private val context: android.app.Applicatio
         }
         if(previous!=request) {
             db.delete("scans","profile=?",arrayOf(profile.id)); db.delete("directories","profile=?",arrayOf(profile.id))
+            db.delete("scan_roots","profile=?",arrayOf(profile.id))
             db.update("profiles",ContentValues().apply { put("reset_request",request) },"id=?",arrayOf(profile.id))
         }
     }
@@ -235,20 +247,52 @@ class LocalStore private constructor(private val context: android.app.Applicatio
             if(generation.isEmpty()) {
                 generation=UUID.randomUUID().toString()
                 db.delete("directories","profile=?",arrayOf(profile.id)); db.delete("scans","profile=?",arrayOf(profile.id))
+                db.delete("scan_roots","profile=?",arrayOf(profile.id))
                 db.insertOrThrow("scans",null,ContentValues().apply { put("profile",profile.id); put("revision",profile.revision); put("generation",generation) })
                 db.update("folders",ContentValues().apply { putNull("error") },"profile=?",arrayOf(profile.id))
-                profile.folders.filterNot { it.paused }.forEach { folder -> enqueue(profile.id,Directory(folder.uri,folder.documentId,folder.name)) }
+                profile.folders.filterNot { it.paused }.forEach { folder -> enroll(db,profile.id,folder,generation) }
             }
         }; changed(profile.id); return generation
+    }
+    private fun enroll(db: SQLiteDatabase, profile: String, folder: Folder, generation: String) {
+        db.delete("directories","profile=? AND root=?",arrayOf(profile,folder.uri))
+        db.insertWithOnConflict("scan_roots",null,ContentValues().apply {
+            put("profile",profile); put("root",folder.uri); put("generation",generation)
+        },SQLiteDatabase.CONFLICT_REPLACE)
+        enqueue(profile,Directory(folder.uri,folder.documentId,folder.name))
     }
     fun enqueue(profile: String, d: Directory) { writableDatabase.insertWithOnConflict("directories",null,ContentValues().apply {
         put("profile",profile); put("root",d.root); put("document",d.document); put("path",d.path)
     },SQLiteDatabase.CONFLICT_IGNORE) }
-    fun directory(profile: String): Directory? = rows("SELECT d.root,d.document,d.path,d.position FROM directories d JOIN folders f ON f.profile=d.profile AND f.uri=d.root WHERE d.profile=? AND d.done=0 AND f.paused=0 ORDER BY d.rowid LIMIT 1",listOf(profile)).use {
+    fun directory(profile: String): Directory? = rows("SELECT d.root,d.document,d.path,d.position FROM directories d JOIN folders f ON f.profile=d.profile AND f.uri=d.root JOIN scan_roots r ON r.profile=d.profile AND r.root=d.root JOIN scans s ON s.profile=r.profile AND s.generation=r.generation WHERE d.profile=? AND d.done=0 AND f.paused=0 ORDER BY d.rowid LIMIT 1",listOf(profile)).use {
         if(it.moveToFirst()) Directory(it.getString(0),it.getString(1),it.getString(2),it.getInt(3)) else null
     }
-    fun checkpoint(profile: String, d: Directory, position: Int) { writableDatabase.update("directories",ContentValues().apply { put("position",position) },"profile=? AND root=? AND document=?",arrayOf(profile,d.root,d.document)) }
-    fun directoryDone(profile: String, d: Directory) { writableDatabase.update("directories",ContentValues().apply { put("done",1) },"profile=? AND root=? AND document=?",arrayOf(profile,d.root,d.document)); changed(profile,false) }
+    fun checkpoint(profile: String, d: Directory, position: Int, generation: String) {
+        writableDatabase.update("directories",ContentValues().apply { put("position",position) },
+            "profile=? AND root=? AND document=? AND EXISTS (SELECT 1 FROM scan_roots r WHERE r.profile=directories.profile AND r.root=directories.root AND r.generation=?)",
+            arrayOf(profile,d.root,d.document,generation))
+    }
+    fun directoryDone(profile: String, d: Directory, generation: String) {
+        writableDatabase.update("directories",ContentValues().apply { put("done",1) },
+            "profile=? AND root=? AND document=? AND EXISTS (SELECT 1 FROM scan_roots r WHERE r.profile=directories.profile AND r.root=directories.root AND r.generation=?)",
+            arrayOf(profile,d.root,d.document,generation)); changed(profile,false)
+    }
+    /** Each resumed SAF query starts at the beginning; unchanged entries need no repeated asset writes. */
+    fun visitDirectoryEntry(profile: String, generation: String, d: Directory, document: String, fingerprint: String, discover: () -> Unit): Boolean {
+        val seen=rows("SELECT e.fingerprint FROM directory_entries e JOIN scan_roots r ON r.profile=e.profile AND r.root=e.root WHERE e.profile=? AND e.root=? AND e.parent=? AND e.document=? AND r.generation=?",listOf(profile,d.root,d.document,document,generation)).use {
+            it.moveToFirst() && it.getString(0)==fingerprint
+        }
+        if(seen) return false
+        return transaction { db ->
+            if(!rows("SELECT 1 FROM scan_roots r JOIN scans s ON s.profile=r.profile AND s.generation=r.generation WHERE r.profile=? AND r.root=? AND r.generation=?",listOf(profile,d.root,generation)).use { it.moveToFirst() })
+                throw kotlinx.coroutines.CancellationException("Scan changed")
+            discover()
+            db.insertWithOnConflict("directory_entries",null,ContentValues().apply {
+                put("profile",profile); put("root",d.root); put("parent",d.document); put("document",document); put("fingerprint",fingerprint)
+            },SQLiteDatabase.CONFLICT_REPLACE)
+            true
+        }
+    }
     fun folderError(profile: String, root: String, error: String) { writableDatabase.update("folders",ContentValues().apply { put("error",error) },"profile=? AND uri=?",arrayOf(profile,root)); changed(profile) }
     fun discovered(profile: String, generation: String, root: String, uri: String, name: String, path: String, mime: String, modified: Long, size: Long, revision: String?=null) {
         val updated=transaction { db ->
@@ -285,20 +329,26 @@ class LocalStore private constructor(private val context: android.app.Applicatio
     fun scanFinished(profile: String, generation: String) {
         transaction { db ->
             // Only successful, completely traversed roots can remove absent files.
-            val complete="SELECT f.uri FROM folders f WHERE f.profile=? AND f.paused=0 AND f.error IS NULL AND EXISTS (SELECT 1 FROM directories d WHERE d.profile=f.profile AND d.root=f.uri) AND NOT EXISTS (SELECT 1 FROM directories d WHERE d.profile=f.profile AND d.root=f.uri AND d.done=0)"
-            db.delete("assets","profile=? AND seen<>? AND root IN ($complete)",arrayOf(profile,generation,profile))
-            db.execSQL("UPDATE folders SET last_scan=? WHERE profile=? AND uri IN ($complete)",arrayOf<Any>(System.currentTimeMillis(),profile,profile))
-            db.delete("scans","profile=? AND NOT EXISTS (SELECT 1 FROM directories WHERE profile=? AND done=0)",arrayOf(profile,profile))
+            val completed="SELECT r.root FROM scan_roots r JOIN scans s ON s.profile=r.profile AND s.generation=r.generation JOIN folders f ON f.profile=r.profile AND f.uri=r.root WHERE r.profile=? AND r.generation=? AND f.paused=0 AND EXISTS (SELECT 1 FROM directories d WHERE d.profile=r.profile AND d.root=r.root) AND NOT EXISTS (SELECT 1 FROM directories d WHERE d.profile=r.profile AND d.root=r.root AND d.done=0)"
+            val complete="$completed AND f.error IS NULL"
+            db.delete("assets","profile=? AND seen<>? AND root IN ($complete)",arrayOf(profile,generation,profile,generation))
+            db.execSQL("UPDATE folders SET last_scan=? WHERE profile=? AND uri IN ($complete)",arrayOf<Any>(System.currentTimeMillis(),profile,profile,generation))
+            val finished=rows(completed,listOf(profile,generation)).use { c -> buildList { while(c.moveToNext()) add(c.getString(0)) } }
+            finished.forEach { root ->
+                db.delete("directories","profile=? AND root=?",arrayOf(profile,root))
+                db.delete("scan_roots","profile=? AND root=? AND generation=?",arrayOf(profile,root,generation))
+            }
+            db.delete("scans","profile=? AND generation=? AND NOT EXISTS (SELECT 1 FROM scan_roots WHERE profile=?)",arrayOf(profile,generation,profile))
             db.update("profiles",ContentValues().apply { put("last_scan",System.currentTimeMillis()) },"id=?",arrayOf(profile))
         }; changed(profile)
     }
     fun pauseFolder(profile: String, root: String, paused: Boolean) {
         transaction { db ->
             db.update("folders",ContentValues().apply { put("paused",if(paused) 1 else 0) },"profile=? AND uri=?",arrayOf(profile,root))
-            if(!paused && rows("SELECT 1 FROM scans WHERE profile=?",listOf(profile)).use { it.moveToFirst() } &&
-                !rows("SELECT 1 FROM directories WHERE profile=? AND root=?",listOf(profile,root)).use { it.moveToFirst() }) {
+            val generation=rows("SELECT generation FROM scans WHERE profile=?",listOf(profile)).use { if(it.moveToFirst()) it.getString(0) else null }
+            if(!paused && generation!=null && !rows("SELECT 1 FROM scan_roots WHERE profile=? AND root=?",listOf(profile,root)).use { it.moveToFirst() }) {
                 val folder=library(profile).folders.single { it.uri==root }
-                enqueue(profile,Directory(root,folder.documentId,folder.name))
+                enroll(db,profile,folder,generation)
             }
         }; changed(profile)
     }
@@ -310,8 +360,8 @@ class LocalStore private constructor(private val context: android.app.Applicatio
             db.update("assets",ContentValues().apply { put("pending",1); putNull("failure"); put("seen","") },"profile=? AND root=?",arrayOf(profile,root))
             db.delete("embeddings","asset IN (SELECT id FROM assets WHERE profile=? AND root=?)",arrayOf(profile,root))
             db.insertWithOnConflict("scans",null,ContentValues().apply { put("profile",profile); put("revision",library.revision); put("generation",UUID.randomUUID().toString()) },SQLiteDatabase.CONFLICT_IGNORE)
-            db.delete("directories","profile=? AND root=?",arrayOf(profile,root))
-            enqueue(profile,Directory(root,folder.documentId,folder.name))
+            val generation=rows("SELECT generation FROM scans WHERE profile=?",listOf(profile)).use { it.moveToFirst(); it.getString(0) }
+            enroll(db,profile,folder,generation)
         }; changed(profile)
     }
     fun retryFailures(profile: String) {

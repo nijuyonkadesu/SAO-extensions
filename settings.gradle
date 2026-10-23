@@ -26,6 +26,7 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = 'SAO-extensions'
+include ':extension-runtime'
 include ':immich', ':immich-provider', ':immich-extension', ':local-extension'
 include ':moeview', ':moeview-extension', ':findthatmeme-extension'
 

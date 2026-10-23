@@ -1,0 +1,11 @@
+plugins { alias libs.plugins.android.library }
+android {
+    namespace 'one.njk.sao.extension.runtime'
+    compileSdk 37
+    defaultConfig { minSdk 30; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_21; targetCompatibility JavaVersion.VERSION_21 }
+}
+dependencies {
+    api libs.source.api
+    androidTestImplementation libs.bundles.testing
+}

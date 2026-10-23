@@ -161,7 +161,12 @@ public final class GooglePhotosVectorModule extends XposedModule {
             broker = IGooglePhotosAuthBroker.Stub.asInterface(binder);
             io.execute(() -> {
                 boolean allowed;
-                try { allowed = broker.claim(nonce); } catch (Exception ignored) { allowed = false; }
+                try { allowed = broker.claim(nonce,new IGooglePhotosAuthCancellation.Stub() {
+                    @Override public void cancel(String cancelledNonce) {
+                        if (Binder.getCallingUid()!=moduleUid || !nonce.equals(cancelledNonce)) throw new SecurityException("Unexpected connection cancellation");
+                        main.post(Connection.this::close);
+                    }
+                }); } catch (Exception ignored) { allowed = false; }
                 boolean accepted = allowed;
                 Log.i("SAO.GooglePhotos", accepted ? "Auth request accepted" : "Auth request rejected");
                 main.post(() -> { if (accepted && !finished) choose(); else close(); });
@@ -235,7 +240,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
             main.removeCallbacks(timeout);
             io.execute(() -> {
                 boolean delivered = false;
-                try { if (broker != null) { broker.complete(nonce, account, url, failure); delivered = true; } }
+                try { if (broker != null) delivered = broker.complete(nonce, account, url, failure); }
                 catch (Exception ignored) { }
                 boolean returnToSettings = delivered;
                 main.post(() -> {

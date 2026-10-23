@@ -10,12 +10,18 @@ import android.net.Uri
 
 object MediaBitmaps {
     /** Bounded software bitmap, including a representative video/GIF frame. Run on IO. */
-    fun read(context: Context, uri: Uri, mime: String, edge: Int, background: Int=Color.WHITE): Bitmap {
+    fun read(context: Context, uri: Uri, mime: String, edge: Int, background: Int=Color.WHITE, signal: android.os.CancellationSignal?=null): Bitmap {
         val source = if(mime.startsWith("video/")) MediaMetadataRetriever().use { retriever ->
-            retriever.setDataSource(context,uri)
-            retriever.getScaledFrameAtTime(0,MediaMetadataRetriever.OPTION_CLOSEST_SYNC,edge,edge)
-                ?: throw java.io.IOException("No decodable video frame")
-        } else ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver,uri)) { decoder,info,_ ->
+            context.contentResolver.openAssetFileDescriptor(uri,"r",signal).use { file ->
+                requireNotNull(file)
+                if(file.declaredLength>=0) retriever.setDataSource(file.fileDescriptor,file.startOffset,file.declaredLength)
+                else retriever.setDataSource(file.fileDescriptor)
+                retriever.getScaledFrameAtTime(0,MediaMetadataRetriever.OPTION_CLOSEST_SYNC,edge,edge)
+                    ?: throw java.io.IOException("No decodable video frame")
+            }
+        } else ImageDecoder.decodeBitmap(ImageDecoder.createSource(java.util.concurrent.Callable {
+            requireNotNull(context.contentResolver.openAssetFileDescriptor(uri,"r",signal))
+        })) { decoder,info,_ ->
             val scale=minOf(1.0,edge.toDouble()/maxOf(info.size.width,info.size.height))
             decoder.setTargetSize(maxOf(1,(info.size.width*scale).toInt()),maxOf(1,(info.size.height*scale).toInt()))
             decoder.allocator=ImageDecoder.ALLOCATOR_SOFTWARE

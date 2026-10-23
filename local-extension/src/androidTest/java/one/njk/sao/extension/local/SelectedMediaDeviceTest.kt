@@ -65,11 +65,11 @@ class SelectedMediaDeviceTest {
         val work=store.directory(id)!!
         assertEquals("selected",work.document)
         assertEquals(100,store.selectedMedia(id,root).size)
-        store.checkpoint(id,work,100)
+        store.checkpoint(id,work,100,generation)
         assertEquals(uris[100],store.selectedMedia(id,root,store.directory(id)!!.position).first().uri)
         store.pauseFolder(id,root,true); assertNull(store.directory(id))
         store.pauseFolder(id,root,false); assertEquals(100,store.directory(id)!!.position)
-        store.directoryDone(id,work); store.scanFinished(id,generation)
+        store.directoryDone(id,work,generation); store.scanFinished(id,generation)
         assertTrue(store.library(id).folders.single().lastScan>0)
     }
 }

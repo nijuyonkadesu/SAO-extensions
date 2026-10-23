@@ -21,6 +21,7 @@ android {
     buildFeatures { viewBinding true; buildConfig true }
 }
 dependencies {
+    implementation project(':extension-runtime')
     implementation project(':immich-provider')
     implementation libs.source.settings
     implementation libs.androidx.appcompat

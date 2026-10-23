@@ -123,6 +123,10 @@ numeric pagination. The [repository](https://github.com/immich-app/immich/blob/v
 orders semantic results by distance and asset ID before applying the page offset.
 There is no 100/1,000-result total cap in the picker. Pages stop when the server has no continuation.
 
+Every media reply is budgeted against the Source SDK's 256 KiB response limit using the complete JSON wrapper's UTF-16 length, including its continuation. Display titles are limited to 160 UTF-16 units; the first 20 display tags and emoji labels use at most 80 units each, without splitting surrogate pairs. Original filenames and backend asset IDs remain complete. Search compilation, tag resolution, Context filtering and media retrieval always use the full backend values.
+
+Metadata and Context continuations are authenticated, typed positions bound to the query, resolved filters, source, profile revision and connection configuration. When a backend page needs several replies, the next host request rereads that same backend page and resumes its unconsumed offset. Its ordered-ID fingerprint must still match; changed or repeating pages fail explicitly instead of losing or duplicating records. No result buffer is retained across requests. The next continuation must fit both the response and the following search request.
+
 **I’m feeling lucky** uses the [pinned random-search contract](https://github.com/immich-app/immich/blob/v3.3.1/server/src/dtos/search.dto.ts)
 with the same structured album/tag/people/place/media/visibility/trash filter,
 but no query text, cursor, order or rank fields. The
@@ -133,6 +137,8 @@ enumerate the library or locally shuffle a ranked prefix. Random browsing does
 not require the ML index. Each explicit reshuffle fetches a new batch; reopening
 uses only the current process-session batch. Batches can overlap and there is no
 cross-batch exclusion history. Scrolling does not request more random batches.
+
+A random reply preserves every supported record from that one batch. If its normal display metadata exceeds the response budget, optional titles/tags/emoji labels are reduced together; the extension never reruns random search to manufacture a continuation. If complete identity/filename records still cannot fit, it reports `LIMIT_EXCEEDED`, without shortening filenames or silently discarding rows. Timeline replies apply the same presentation-only fallback while budgeting their full sequence descriptor and cursors.
 
 Flat Context results are filtered to IMAGE/VIDEO and timeline/archive before publication, excluding
 hidden Live Photo components and audio. Unsupported-only pages advance serially until usable
@@ -196,6 +202,8 @@ Minimum picker key permissions: `asset.read`, `asset.view`, `asset.download`, `t
 Add `album.read` to list/choose albums. Grant mutation permissions only for management features
 that use them; the picker does not need upload/update/delete permissions.
 Add `person.read` to use the optional People filter and its portraits.
+
+People browsing and name-search replies contain at most 40 people, retaining complete IDs with display labels limited to 160 UTF-16 units. Name search rereads the server's matching list for each requested integer page. Exact emoji-tag and place choices are never shortened or dropped: the v1 contract has no continuation for these lists, so a complete list exceeding the response budget reports `LIMIT_EXCEEDED` explicitly.
 
 Credentials use `x-api-key` on the dedicated Immich client's requests. They never enter URLs,
 request logs, global Coil headers or the existing Waifu client. Redirects are disabled, including

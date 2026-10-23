@@ -18,8 +18,17 @@ import one.njk.sao.source.settings.SourceSettingsActivity
 import one.njk.sao.source.settings.SourceSettingsGuard
 
 class GooglePhotosSettingsActivity : SourceSettingsActivity() {
-    private val model by lazy { ViewModelProvider(this)[GooglePhotosSettingsViewModel::class.java] }
+    private val modelHolder=lazy { ViewModelProvider(this)[GooglePhotosSettingsViewModel::class.java] }
+    private val model by modelHolder
     private val document = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::import) }
+    override fun onPause() {
+        if(modelHolder.isInitialized()) model.checkpoint(discard=isFinishing)
+        super.onPause()
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        if(modelHolder.isInitialized()) model.checkpoint()
+        super.onSaveInstanceState(outState)
+    }
     override fun onSourceCreate(savedInstanceState: Bundle?, caller: String) {
         val binding = ActivityGooglephotosSettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)

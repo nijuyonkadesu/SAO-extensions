@@ -3,6 +3,7 @@ package one.njk.sao.extension.local
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import android.provider.DocumentsContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -34,6 +35,7 @@ class LocalSettingsViewModel(app: Application, private val saved: SavedStateHand
     private val selections=mutableMapOf<String,List<String>>()
     internal val importsUnchanged get()=state.value.library?.let { state.value.folders.map { folder -> Triple(folder.uri,folder.name,folder.kind) }==it.folders.map { folder -> Triple(folder.uri,folder.name,folder.kind) } && selections.isEmpty() }==true
     var name=app.getString(R.string.default_name)
+        set(value) { field=value; if(state.value.loaded) saved[DRAFT_NAME]=value }
     private data class Draft(val name: String,val folders: List<Triple<String,String,CollectionKind>>,val context: Boolean,val model: String,val nsfw: Boolean)
     private fun draft()=state.value.let { Draft(name,it.folders.map { folder -> Triple(folder.uri,folder.name,folder.kind) },it.useContext,it.selectedModel.id,it.nsfw) }
     private var initial: Draft?=null
@@ -51,9 +53,11 @@ class LocalSettingsViewModel(app: Application, private val saved: SavedStateHand
             val selected=ClipCatalog.get(library?.contextModel ?: ClipModels.MODEL); selectedModel.value=selected
             val ready=withContext(Dispatchers.IO) { ClipModels.ready(app,selected) }
             if(library!=null) name=library.name
-            mutable.value=State(loaded=true,folders=library?.folders.orEmpty(),library=library,
+            mutable.value=State(folders=library?.folders.orEmpty(),library=library,
                 index=overview?.total,folderIndexes=overview?.folders.orEmpty(),model=ClipModels.Status(ready=ready),useContext=library?.contextSearch ?: ready,selectedModel=selected,importMethod=method,nsfw=library?.nsfw ?: false)
             initial=draft()
+            restoreDraft()
+            mutable.update { it.copy(loaded=true) }
             mutable.subscriptionCount.map { it>0 }.distinctUntilChanged().flatMapLatest { subscribed ->
                 if(!subscribed) emptyFlow() else {
                     // Timing events reuse the latest durable snapshot instead of querying the
@@ -67,9 +71,11 @@ class LocalSettingsViewModel(app: Application, private val saved: SavedStateHand
                 }
             }.collect { (progress,timing) ->
                 val updated=progress.overview; val model=progress.modelStatus
+                val wasEnabled=state.value.useContext
                 mutable.update { before -> before.copy(library=updated?.library,index=updated?.total,folderIndexes=updated?.folders.orEmpty(),
                     estimates=indexEstimates(updated,progress.work,timing),indexWork=progress.work,
-                    model=model,selectedModel=progress.model,useContext=before.useContext || !before.model.ready && model.ready) }
+                    model=model,selectedModel=progress.model,useContext=before.useContext || !before.model.ready && model.ready && saved.get<Boolean>(DRAFT_CONTEXT_EXPLICIT)!=false) }
+                if(wasEnabled!=state.value.useContext) saved[DRAFT_CONTEXT]=state.value.useContext
             }
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { initial=draft(); mutable.update { it.copy(loaded=true,error=R.string.storage_error) } }
@@ -83,6 +89,7 @@ class LocalSettingsViewModel(app: Application, private val saved: SavedStateHand
                     ?: throw java.io.IOException("Folder unavailable")
             }
             mutable.update { before -> before.copy(folders=if(before.folders.any { it.uri==uri.toString() }) before.folders else before.folders+Folder(uri.toString(),title),error=null) }
+            saveCollections()
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { mutable.update { it.copy(error=R.string.folder_error) } }
     } }
@@ -110,21 +117,28 @@ class LocalSettingsViewModel(app: Application, private val saved: SavedStateHand
                 val root=target ?: "selection:${UUID.randomUUID()}"
                 selections[root]=(selections[root].orEmpty()+accepted).distinct()
                 mutable.update { before -> before.copy(folders=if(before.folders.any { it.uri==root }) before.folders else before.folders+Folder(root,getApplication<Application>().getString(R.string.selected_media),kind=CollectionKind.SELECTION)) }
+                saveCollections()
             } catch(cancelled: CancellationException) { throw cancelled }
             catch(_: Exception) { mutable.update { it.copy(error=R.string.media_import_error) } }
             finally { mutable.update { it.copy(working=false) } }
         }
     }
     fun pickerUnavailable() { mutable.update { it.copy(error=R.string.picker_unavailable) } }
-    fun rename(folder: Folder, name: String) { if(name.isNotBlank()) mutable.update { before -> before.copy(folders=before.folders.map { if(it.uri==folder.uri) it.copy(name=name.trim()) else it }) } }
-    fun remove(folder: Folder) { selections.remove(folder.uri); mutable.update { before -> before.copy(folders=before.folders.filterNot { it.uri==folder.uri }) } }
-    fun nsfw(enabled: Boolean) { mutable.update { it.copy(nsfw=enabled) } }
-    fun useContext(enabled: Boolean) { mutable.update { it.copy(useContext=enabled && it.model.ready) } }
+    fun rename(folder: Folder, name: String) { if(name.isNotBlank()) {
+        mutable.update { before -> before.copy(folders=before.folders.map { if(it.uri==folder.uri) it.copy(name=name.trim()) else it }) }; saveCollections()
+    } }
+    fun remove(folder: Folder) { selections.remove(folder.uri); mutable.update { before -> before.copy(folders=before.folders.filterNot { it.uri==folder.uri }) }; saveCollections() }
+    fun nsfw(enabled: Boolean) { mutable.update { it.copy(nsfw=enabled) }; saved[DRAFT_NSFW]=enabled }
+    fun useContext(enabled: Boolean) {
+        val choice=enabled && state.value.model.ready
+        mutable.update { it.copy(useContext=choice) }; saved[DRAFT_CONTEXT]=choice; saved[DRAFT_CONTEXT_EXPLICIT]=choice
+    }
     fun selectModel(index: Int) {
         if(state.value.working) return
         val selected=ClipCatalog.all[index]
         if(selected==state.value.selectedModel) return
         mutable.update { it.copy(selectedModel=selected,model=ClipModels.Status(),useContext=false) }
+        saved[DRAFT_MODEL]=selected.id; saved[DRAFT_CONTEXT]=false; saved.remove<Boolean>(DRAFT_CONTEXT_EXPLICIT)
         selectedModel.value=selected
     }
     fun modelFolder(uri: Uri) {
@@ -203,5 +217,35 @@ class LocalSettingsViewModel(app: Application, private val saved: SavedStateHand
         app.revokeUriPermission(mediaScope(app,library),Intent.FLAG_GRANT_READ_URI_PERMISSION)
         app.revokeUriPermission(store.changesUri(library),Intent.FLAG_GRANT_READ_URI_PERMISSION)
         mutable.update { it.copy(finished=true) }
+    }
+    /** UI drafts contain only local collection references/options; no credentials or media bytes. */
+    private fun saveCollections() {
+        saved[DRAFT_FOLDERS]=ArrayList(state.value.folders.map { folder -> Bundle().apply {
+            putString("uri",folder.uri); putString("name",folder.name); putString("kind",folder.kind.name)
+        } })
+        saved[DRAFT_SELECTIONS]=Bundle().apply { selections.forEach { (root,uris) -> putStringArrayList(root,ArrayList(uris)) } }
+    }
+    private fun restoreDraft() {
+        val restoredModel=saved.get<String>(DRAFT_MODEL)?.let(ClipCatalog::get) ?: state.value.selectedModel
+        val folders=saved.get<ArrayList<Bundle>>(DRAFT_FOLDERS)?.map { row ->
+            Folder(requireNotNull(row.getString("uri")),requireNotNull(row.getString("name")),kind=CollectionKind.valueOf(requireNotNull(row.getString("kind"))))
+        } ?: state.value.folders
+        saved.get<Bundle>(DRAFT_SELECTIONS)?.let { bundle ->
+            bundle.keySet().forEach { root -> selections[root]=bundle.getStringArrayList(root).orEmpty().toList() }
+        }
+        name=saved[DRAFT_NAME] ?: name
+        mutable.update { it.copy(folders=folders,selectedModel=restoredModel,
+            model=if(restoredModel==it.selectedModel) it.model else ClipModels.Status(),
+            useContext=saved[DRAFT_CONTEXT] ?: it.useContext,nsfw=saved[DRAFT_NSFW] ?: it.nsfw) }
+        selectedModel.value=restoredModel
+    }
+    private companion object {
+        const val DRAFT_NAME="draftName"
+        const val DRAFT_FOLDERS="draftFolders"
+        const val DRAFT_SELECTIONS="draftSelections"
+        const val DRAFT_MODEL="draftModel"
+        const val DRAFT_CONTEXT="draftContext"
+        const val DRAFT_CONTEXT_EXPLICIT="draftContextExplicit"
+        const val DRAFT_NSFW="draftNsfw"
     }
 }

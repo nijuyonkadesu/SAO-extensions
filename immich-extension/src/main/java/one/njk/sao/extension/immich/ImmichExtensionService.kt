@@ -4,6 +4,8 @@ import android.content.Intent
 import one.njk.sao.immichprovider.ImmichConfig
 import one.njk.sao.immichprovider.ImmichAdapter
 import one.njk.sao.immichprovider.ImmichMediaSequence
+import one.njk.sao.immichprovider.ImmichProfileScope
+import one.njk.sao.immichprovider.ImmichResponses
 import one.njk.sao.source.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -38,17 +40,15 @@ class ImmichExtensionService : ExtensionService() {
         if(operation==ExtensionProtocol.IMPORT_OPTIONS) return ImportWire.options(ImmichImports(this,connection).options())
         if(operation==ExtensionProtocol.IMPORT_MEDIA) return ImportWire.receipt(ImmichImports(this,connection).upload(ImportWire.request(payload,caller)))
         if(operation==ExtensionProtocol.IMPORT_COMPLETE || operation==ExtensionProtocol.IMPORT_CANCEL) return JSONObject()
-        ImmichAdapter(connection.config,identity,FloatingDispatchers()).use { source ->
+        ImmichAdapter(connection.config,identity,FloatingDispatchers(),ImmichProfileScope(connection.id,connection.revision)).use { source ->
             return when (operation) {
                 ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(source.searchModes().let { modes -> SourceCapabilities(modes,SearchFacet.entries.toSet(),random=true,sequence=true,
                     defaultMode=if(SearchMode.CONTEXT in modes) SearchMode.CONTEXT else SearchMode.FILENAME, categories=ImmichHomeCategories.values,imports=true) })
                 ExtensionProtocol.SEARCH -> SourceWire.page(source.page(SourceWire.query(payload.getJSONObject("query")),SourceWire.nullable(payload,"cursor")))
-                ExtensionProtocol.FILTERS -> JSONObject().put("values",SourceWire.strings(source.filters()))
-                ExtensionProtocol.PEOPLE -> source.people(payload.optString("name"),payload.optInt("page",1),identity).let {
-                    JSONObject().put("people",JSONArray(it.people.map(SourceWire::person))).put("next",it.nextPage)
-                }
-                ExtensionProtocol.PLACES -> JSONObject().put("values",SourceWire.strings(source.places(PlaceLevel.valueOf(payload.getString("level")),
-                    SourceWire.nullable(payload,"country"),SourceWire.nullable(payload,"state"),identity)))
+                ExtensionProtocol.FILTERS -> ImmichResponses.values(source.filters())
+                ExtensionProtocol.PEOPLE -> ImmichResponses.people(source.people(payload.optString("name"),payload.optInt("page",1),identity))
+                ExtensionProtocol.PLACES -> ImmichResponses.values(source.places(PlaceLevel.valueOf(payload.getString("level")),
+                    SourceWire.nullable(payload,"country"),SourceWire.nullable(payload,"state"),identity))
                 ExtensionProtocol.MEDIA -> {
                     val item = SourceWire.item(payload.getJSONObject("item"))
                     check(item.remote?.sourceId == identity)
@@ -67,10 +67,10 @@ class ImmichExtensionService : ExtensionService() {
                 }
                 ExtensionProtocol.SEQUENCE_OPEN -> {
                     val sequence = source.openSequence(SourceWire.item(payload.getJSONObject("item"))) as ImmichMediaSequence
-                    sequence.use { SourceWire.sequence(it.initial()).put("token",it.descriptor()) }
+                    sequence.use { ImmichResponses.sequence(it.initial(),it.descriptor()) }
                 }
                 ExtensionProtocol.SEQUENCE_PAGE -> source.reopenSequence(payload.getJSONObject("token")).use {
-                    SourceWire.sequence(it.page(SequenceDirection.valueOf(payload.getString("direction")),payload.getString("cursor")))
+                    ImmichResponses.sequence(it.page(SequenceDirection.valueOf(payload.getString("direction")),payload.getString("cursor")))
                 }
                 ExtensionProtocol.SEQUENCE_CLOSE -> JSONObject()
                 else -> throw ExtensionFailure("UNSUPPORTED")

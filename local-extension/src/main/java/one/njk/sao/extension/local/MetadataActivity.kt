@@ -41,24 +41,37 @@ class MetadataViewModel(app: Application, saved: SavedStateHandle) : AndroidView
     @OptIn(FlowPreview::class)
     private fun load(text: String, more: Boolean) {
         work?.cancel()
-        val previous=state.value.items.takeIf { more || text==lastQuery }.orEmpty()
+        val previous=state.value.items.takeIf { text==lastQuery }.orEmpty()
+        val count=maxOf(60,previous.size)+(if(more && previous.isNotEmpty()) 60 else 0)
         lastQuery=text
         mutable.value=state.value.copy(loading=true,error=false)
         work=viewModelScope.launch {
             try {
-                val boundary=if(more) previous.lastOrNull()?.let { it.modified to it.id } else null
-                val rows=withContext(Dispatchers.IO) { store.search(profile,MediaQuery(text,mode=SearchMode.DESCRIPTION),boundary)
-                    .map { it.copy(ocr="",ocrOverride=null,description=null) } }
-                val merged=if(more) previous+rows.take(60) else {
-                    val updated=rows.associateBy { it.id }; previous.map { updated[it.id] ?: it }+rows.take(60)
-                }
-                mutable.value=State(merged.distinctBy { it.id },rows.size>60)
+                val (items,remaining)=withContext(Dispatchers.IO) { metadataWindow(store,profile,text,count) }
+                mutable.value=State(items,remaining)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { mutable.value=State(previous,error=true) }
         }
     }
     private var lastQuery=""
     fun more() { if(!state.value.loading && state.value.more) load(query.value,true) }
+}
+
+/** Refresh the loaded window in current query order; continuation always follows its current last row. */
+internal data class MetadataWindow(val items: List<LocalAsset>, val more: Boolean)
+
+internal suspend fun metadataWindow(store: LocalStore, profile: String, text: String, count: Int): MetadataWindow {
+    require(count>0)
+    val items=mutableListOf<LocalAsset>()
+    var boundary: Pair<Long,Long>?=null
+    while(items.size<=count) {
+        currentCoroutineContext().ensureActive()
+        val batch=store.search(profile,MediaQuery(text,mode=SearchMode.DESCRIPTION),boundary,limit=minOf(101,count+1-items.size))
+        if(batch.isEmpty()) break
+        items+=batch.map { it.copy(ocr="",ocrOverride=null,description=null) }
+        boundary=batch.last().let { it.modified to it.id }
+    }
+    return MetadataWindow(items.take(count),items.size>count)
 }
 
 class MetadataActivity : AppCompatActivity() {
