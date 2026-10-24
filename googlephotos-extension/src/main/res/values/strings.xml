@@ -8,17 +8,17 @@
     <string name="profile_name">Source name</string>
     <string name="account_heading">Google account</string>
     <string name="vector_help">Enable SAO Google Photos in Vector (modern LSPosed), select Google Photos in its scope, then force-stop and reopen Google Photos. Connect below and choose your account. Expired sessions renew silently when you use this source, while Google allows it. Google may still require you to reconnect.</string>
-    <string name="connect_vector">Connect through Google Photos · Vector</string>
+    <string name="connect_vector">Connect with Vector</string>
     <string name="cancel_connection">Cancel connection</string>
-    <string name="not_connected">No account connected.</string>
-    <string name="session_ready">Account session configured. Save this source to use it in SAO.</string>
-    <string name="whole_library">Whole library</string>
+    <string name="not_connected">Not connected</string>
+    <string name="session_ready">Session configured</string>
+    <string name="whole_library">All media</string>
     <string name="album_heading">Browse an album</string>
-    <string name="album_help">Whole library enables search. Album sources browse that album in its saved order; account-wide search is kept separate.</string>
+    <string name="album_help">All media enables search. Album sources browse that album in its saved order; account-wide search is kept separate.</string>
     <string name="more_albums">More albums</string>
     <string name="search_heading">Search</string>
     <string name="search_help">Context sends your full query, including emoji, to Google Photos. OCR uses Google’s quoted Text matches: it can also match captions and filenames. Google does not expose an OCR-only switch here.</string>
-    <string name="fallback_heading">Advanced · Import a browser session</string>
+    <string name="fallback_heading">Browser session</string>
     <string name="fallback_help">If native connection is unavailable, import a Google Photos cookies.txt export or paste its Cookie header. Keep this account credential private. It is encrypted on this device; SAO receives only media and the source name.</string>
     <string name="import_session">Import cookies.txt</string>
     <string name="paste_session">Paste session</string>
@@ -45,4 +45,6 @@
     <string name="service_error">Google Photos could not complete this request. Try again later.</string>
     <string name="network_error">Could not connect. Check your network and try again.</string>
     <string name="invalid_response">Google returned an unexpected response. Its private interface may have changed.</string>
+    <string name="all_media">All media</string>
+    <string name="choose_album">Choose album</string>
 </resources>

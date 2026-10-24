@@ -39,4 +39,8 @@
     <string name="clear_verification">Clear saved verification</string>
     <string name="verification_needed">Cloudflare requires browser verification. Tap Verify with Cloudflare, complete the check, then test the connection again.</string>
     <string name="ready">Save this profile to use it in SAO.</string>
+    <string name="board_yandere">Yande.re</string>
+    <string name="board_konachan">Konachan</string>
+    <string name="board_gelbooru">Gelbooru</string>
+    <string name="board_danbooru">Danbooru</string>
 </resources>

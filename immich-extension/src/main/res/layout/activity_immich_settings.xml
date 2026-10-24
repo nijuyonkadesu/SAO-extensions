@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/settings_scroll" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
         <com.google.android.material.button.MaterialButton android:id="@+id/back" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/immich_back" />
@@ -8,7 +7,7 @@
         <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:hint="@string/source_name">
             <com.google.android.material.textfield.TextInputEditText android:id="@+id/source_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textCapWords" android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
-        <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" />
+        <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" />
         <TextView style="@style/SaoSourceSectionHeading" android:text="@string/section_connection" />
         <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:hint="@string/immich_server_url">
             <com.google.android.material.textfield.TextInputEditText android:id="@+id/server_url" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textUri" android:maxLines="2" android:importantForAutofill="no" />
@@ -16,19 +15,25 @@
         <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:hint="@string/immich_api_key" app:endIconMode="password_toggle">
             <com.google.android.material.textfield.TextInputEditText android:id="@+id/api_key" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textPassword" android:maxLines="1" android:saveEnabled="false" android:importantForAutofill="no" />
         </com.google.android.material.textfield.TextInputLayout>
-        <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" />
+        <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" />
         <TextView style="@style/SaoSourceSectionHeading" android:text="@string/section_library" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/immich_search_description" android:textAppearance="?attr/textAppearanceBodyMedium" />
-        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:hint="@string/immich_album_scope" app:helperText="@string/immich_album_hint">
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/album" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none" />
-        </com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.chip.ChipGroup android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/SaoSourceChipGroup">
+            <com.google.android.material.chip.Chip android:id="@+id/all_media" android:text="@string/immich_all_photos" style="@style/Widget.SaoSource.Chip.Filter" android:layout_width="wrap_content" android:layout_height="wrap_content" app:chipIcon="@drawable/source_choice_all_inclusive" app:chipIconVisible="true" android:checkable="true" android:saveEnabled="false" />
+            <com.google.android.material.chip.Chip android:id="@+id/album" android:text="@string/choose_album" style="@style/Widget.SaoSource.Chip.Status" android:layout_width="wrap_content" android:layout_height="wrap_content" app:chipIcon="@drawable/source_chip_photo_library" app:chipIconVisible="true" android:saveEnabled="false" />
+        </com.google.android.material.chip.ChipGroup>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/immich_album_hint" android:textAppearance="?attr/textAppearanceBodySmall" android:textColor="?attr/colorOnSurfaceVariant" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="@string/immich_credentials_description" android:textAppearance="?attr/textAppearanceBodySmall" android:textColor="?attr/colorOnSurfaceVariant" />
-        <com.google.android.material.progressindicator.LinearProgressIndicator android:id="@+id/progress" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:indeterminate="true" />
+        <com.google.android.material.progressindicator.LinearProgressIndicator android:id="@+id/progress" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:indeterminate="true" />
         <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:accessibilityLiveRegion="polite" android:textAppearance="?attr/textAppearanceBodyLarge" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/test_connection" style="?attr/materialButtonOutlinedStyle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="@string/immich_test" />
+        <com.google.android.material.chip.ChipGroup android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/SaoSourceChipGroup">
+            <com.google.android.material.chip.Chip android:id="@+id/test_connection" style="@style/Widget.SaoSource.Chip.Action" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/immich_test" app:chipIcon="@drawable/source_chip_link" app:chipIconVisible="true" android:saveEnabled="false" />
+        </com.google.android.material.chip.ChipGroup>
         <include android:id="@+id/intake" layout="@layout/source_intake_section" />
-        <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/save_connection" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="@string/immich_save" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/delete_source" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/source_delete" android:visibility="gone" />
+        <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" />
+        <com.google.android.material.chip.ChipGroup android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/SaoSourceChipGroup">
+            <com.google.android.material.chip.Chip android:id="@+id/delete_source" style="@style/Widget.SaoSource.Chip.Destructive" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/source_delete" android:visibility="gone" app:chipIcon="@drawable/source_chip_delete" app:chipIconVisible="true" android:saveEnabled="false" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/save_connection" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/immich_save" />
+        </com.google.android.material.chip.ChipGroup>
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

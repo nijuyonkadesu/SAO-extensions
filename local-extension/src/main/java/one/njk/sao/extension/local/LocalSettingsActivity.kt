@@ -22,6 +22,8 @@ import one.njk.sao.extension.local.databinding.ItemFolderBinding
 import one.njk.sao.source.ExtensionProtocol
 import one.njk.sao.source.settings.SourceIntakeSection
 import one.njk.sao.source.settings.SourceSettingsGuard
+import one.njk.sao.source.settings.SourceChipChoices
+import one.njk.sao.source.settings.R as SettingsR
 
 class LocalSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity() {
     private val model by lazy { ViewModelProvider(this)[LocalSettingsViewModel::class.java] }
@@ -57,15 +59,15 @@ class LocalSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity
             catch(_: android.content.ActivityNotFoundException) { model.pickerUnavailable() }
             catch(_: SecurityException) { model.pickerUnavailable() }
         }
-        binding.importMethod.setSimpleItems(ImportMethod.entries.map { getString(it.label) }.toTypedArray())
-        binding.importMethod.setOnItemClickListener { _,_,position,_ -> model.importMethod(position) }
+        val methods=SourceChipChoices(binding.importMethod,listOf(ImportMethod.FOLDER to binding.pickerFolder,
+            ImportMethod.PHOTOS to binding.pickerPhotos,ImportMethod.FILES to binding.pickerFiles)) { model.importMethod(it.ordinal) }
         binding.saveLibrary.setOnClickListener { model.save() }
         binding.rescan.setOnClickListener { model.rescan() }
         binding.pauseIndexing.setOnClickListener { model.pause() }
         binding.nsfw.setOnCheckedChangeListener { _,checked -> if(!renderingContext) model.nsfw(checked) }
         binding.contextSearch.setOnCheckedChangeListener { _,checked -> if(!renderingContext) model.useContext(checked) }
-        binding.modelChoice.setSimpleItems(ClipCatalog.all.map { getString(it.label) }.toTypedArray())
-        binding.modelChoice.setOnItemClickListener { _,_,position,_ -> model.selectModel(position) }
+        val models=SourceChipChoices(binding.modelChoice,listOf(ClipCatalog.immich.id to binding.modelImmich,
+            ClipCatalog.lite.id to binding.modelLite)) { id -> model.selectModel(ClipCatalog.all.indexOfFirst { it.id==id }) }
         binding.chooseModelFolder.setOnClickListener { modelPicker.launch(ModelStorage.tree(this,model.state.value.selectedModel)) }
         binding.downloadModel.setOnClickListener {
             MaterialAlertDialogBuilder(this).setTitle(R.string.download_model).setMessage(getString(R.string.model_download_size,(model.state.value.selectedModel.bytes+999_999)/1_000_000))
@@ -85,18 +87,14 @@ class LocalSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity
                 intake.configure(requireNotNull(caller),library.id,library.revision) { LocalImports(app,LocalStore.get(app),library).options() }
                 intake.editable(model.importsUnchanged && !state.working)
             }
-            val methodLabel=getString(state.importMethod.label)
-            if(binding.importMethod.text.toString()!=methodLabel) binding.importMethod.setText(methodLabel,false)
-            binding.importMethod.isEnabled=state.loaded && !state.working
+            methods.render(state.importMethod,state.loaded && !state.working)
             binding.importHelp.setText(state.importMethod.help)
             binding.cloudMediaSettings.isVisible=state.importMethod==ImportMethod.PHOTOS && cloudSettingsAvailable
             binding.addFolder.setText(state.importMethod.action)
             binding.addWholeFolder.isVisible=state.importMethod!=ImportMethod.FOLDER
             binding.indexStatus.bind(state.index,state.library?.paused==true,state.indexWork,state.estimates.total)
             val modelStatus=state.model
-            val label=getString(state.selectedModel.label)
-            if(binding.modelChoice.text.toString()!=label) binding.modelChoice.setText(label,false)
-            binding.modelChoice.isEnabled=!state.working
+            models.render(state.selectedModel.id,state.loaded && !state.working)
             binding.modelHelp.setText(if(state.selectedModel.quantized) R.string.model_lite_help else R.string.model_immich_help)
             binding.modelLocation.text=when {
                 modelStatus.location!=null -> getString(R.string.model_location,modelStatus.location)
@@ -116,6 +114,7 @@ class LocalSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity
             binding.modelProgress.setProgressCompat((modelStatus.bytes*1000/state.selectedModel.bytes).toInt(),false)
             binding.downloadModel.isVisible=!modelStatus.ready && modelStatus.location!=null && modelStatus.work==IndexWork.IDLE
             binding.chooseModelFolder.isEnabled=!state.working && modelStatus.work==IndexWork.IDLE
+            binding.chooseModelFolder.isActivated=modelStatus.location!=null || modelStatus.legacy
             binding.pauseDownload.isVisible=!modelStatus.ready && modelStatus.work!=IndexWork.IDLE
             binding.downloadModel.isEnabled=!state.working; binding.pauseDownload.isEnabled=!state.working
             binding.contextSearch.isEnabled=modelStatus.ready && !state.working
@@ -125,6 +124,8 @@ class LocalSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity
                 val status=state.folderIndexes[folder.uri]
                 row.indexStatus.bind(status,state.library?.paused==true,state.indexWork,state.estimates.folders[folder.uri])
                 row.processingActions.isVisible=status!=null
+                row.pauseFolder.isActivated=status?.paused==true
+                row.pauseFolder.setChipIconResource(if(status?.paused==true) SettingsR.drawable.source_chip_play_arrow else SettingsR.drawable.source_chip_pause)
                 row.pauseFolder.setText(if(status?.paused==true) R.string.resume_album else R.string.pause_album)
                 listOf(row.pauseFolder,row.restartFolder,row.rename,row.remove,row.addMedia).forEach { it.isEnabled=!state.working }
             }
@@ -132,6 +133,8 @@ class LocalSettingsActivity : one.njk.sao.source.settings.SourceSettingsActivity
             listOf(binding.addFolder,binding.addWholeFolder,binding.sourceName,binding.saveLibrary,binding.deleteLibrary).forEach { it.isEnabled=state.loaded && !state.working }
             listOf(binding.rescan,binding.pauseIndexing,binding.browseMetadata).forEach { it.isVisible=state.library!=null; it.isEnabled=!state.working }
             binding.deleteLibrary.isVisible=state.library!=null
+            binding.pauseIndexing.isActivated=state.library?.paused==true
+            binding.pauseIndexing.setChipIconResource(if(state.library?.paused==true) SettingsR.drawable.source_chip_play_arrow else SettingsR.drawable.source_chip_pause)
             binding.pauseIndexing.setText(if(state.library?.paused==true) R.string.resume else R.string.pause)
             if(state.finished) { setResult(RESULT_OK,Intent().putExtra(ExtensionProtocol.PROFILE,model.profile)); finish() }
         } } }

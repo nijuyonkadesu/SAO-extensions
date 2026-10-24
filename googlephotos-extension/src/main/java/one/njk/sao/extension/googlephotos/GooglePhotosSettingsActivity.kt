@@ -16,6 +16,8 @@ import one.njk.sao.extension.googlephotos.databinding.ActivityGooglephotosSettin
 import one.njk.sao.source.ExtensionProtocol
 import one.njk.sao.source.settings.SourceSettingsActivity
 import one.njk.sao.source.settings.SourceSettingsGuard
+import one.njk.sao.source.settings.SourceScopeChips
+import one.njk.sao.source.settings.R as SettingsR
 
 class GooglePhotosSettingsActivity : SourceSettingsActivity() {
     private val modelHolder=lazy { ViewModelProvider(this)[GooglePhotosSettingsViewModel::class.java] }
@@ -45,7 +47,7 @@ class GooglePhotosSettingsActivity : SourceSettingsActivity() {
         binding.connectVector.setOnClickListener { model.connect(::startActivity) }
         binding.cancelConnection.setOnClickListener { model.cancelConnection() }
         binding.checkService.setOnClickListener { model.check() }
-        binding.chooseAlbum.setOnClickListener { model.albums() }
+        val scope=SourceScopeChips(binding.allMedia,binding.chooseAlbum,{ model.album(null) },{ model.albums() })
         binding.importSession.setOnClickListener { document.launch(arrayOf("text/*", "application/octet-stream")) }
         binding.pasteSession.setOnClickListener {
             val input = TextInputEditText(this).apply {
@@ -62,7 +64,7 @@ class GooglePhotosSettingsActivity : SourceSettingsActivity() {
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.use_session) { _, _ -> model.pasteSession(input.text.toString()); input.text?.clear() }.show()
         }
-        binding.showFallback.setOnClickListener { binding.fallback.isVisible = !binding.fallback.isVisible }
+        binding.showFallback.setOnClickListener { binding.fallback.isVisible = !binding.fallback.isVisible; binding.showFallback.isActivated=binding.fallback.isVisible }
         binding.saveSource.setOnClickListener { model.save() }
         binding.removeSource.setOnClickListener { model.delete() }
         binding.removeSource.isVisible = model.editing != null
@@ -73,7 +75,9 @@ class GooglePhotosSettingsActivity : SourceSettingsActivity() {
                     if (binding.sourceName.text.toString() != state.name) binding.sourceName.setText(state.name)
                     val accountSlot = String.format(java.util.Locale.ROOT, "%d", state.config.account)
                     if (binding.accountIndex.text.toString() != accountSlot) binding.accountIndex.setText(accountSlot)
-                    binding.chooseAlbum.text = state.config.albumName.ifBlank { getString(R.string.whole_library) }
+                    scope.render(state.config.album.isNotEmpty(),state.config.albumName.ifBlank { getString(R.string.choose_album) },state.loaded && !state.working)
+                    binding.sessionStatus.isActivated=state.config.cookies.isNotEmpty()
+                    binding.sessionStatus.setChipIconResource(if(state.config.cookies.isEmpty()) SettingsR.drawable.source_chip_lock else SettingsR.drawable.source_chip_check)
                     binding.sessionStatus.setText(if (state.config.cookies.isEmpty()) R.string.not_connected else R.string.session_ready)
                     rendering = false
                     listOf(binding.sourceName, binding.accountIndex, binding.connectVector, binding.checkService, binding.chooseAlbum,
@@ -85,8 +89,9 @@ class GooglePhotosSettingsActivity : SourceSettingsActivity() {
                     binding.cancelConnection.isVisible = state.working && state.status == R.string.waiting_vector
                     if (state.chooseAlbum && albumDialog == null) {
                         albumDialog = MaterialAlertDialogBuilder(this@GooglePhotosSettingsActivity).setTitle(R.string.album_heading)
-                            .setItems((listOf(getString(R.string.whole_library)) + state.albums.map { "${it.name} (${it.count})" }).toTypedArray()) { _, index ->
-                                model.album(state.albums.getOrNull(index - 1))
+                            .setSingleChoiceItems((listOf(getString(R.string.whole_library)) + state.albums.map { "${it.name} (${it.count})" }).toTypedArray(),
+                                if(state.config.album.isEmpty()) 0 else state.albums.indexOfFirst { it.key==state.config.album }.let { if(it<0) -1 else it+1 }) { dialog,index ->
+                                model.album(state.albums.getOrNull(index - 1)); dialog.dismiss()
                             }.setNegativeButton(android.R.string.cancel) { _, _ -> model.closeAlbums() }
                             .apply {
                                 if (state.nextAlbum != null) setNeutralButton(R.string.more_albums) { _, _ -> model.closeAlbums(); model.albums(next = true) }

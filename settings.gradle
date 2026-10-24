@@ -13,6 +13,27 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Review builds consume a staged, versioned SDK without publishing a GitHub release.
+        ivy {
+            name = 'SaoSourceSdkLocal'
+            url = providers.gradleProperty('saoSdkRepo').map { new File(it) }.getOrElse(new File(settingsDir, '../SAO/build/source-sdk'))
+            patternLayout {
+                artifact '[artifact]-[revision](-[classifier]).[ext]'
+                ivy '[module]-[revision].ivy.xml'
+            }
+            metadataSources { ivyDescriptor() }
+            content { includeModule 'one.njk.sao', 'source-settings' }
+        }
+        ivy {
+            name = 'SaoSettingsSdk'
+            url = 'https://github.com/nijuyonkadesu/SAO/releases/download/source-sdk-1.0.1'
+            patternLayout {
+                artifact '[artifact]-[revision](-[classifier]).[ext]'
+                ivy '[module]-[revision].ivy.xml'
+            }
+            metadataSources { ivyDescriptor() }
+            content { includeModule 'one.njk.sao', 'source-settings' }
+        }
         ivy {
             name = 'SaoSourceSdk'
             url = 'https://github.com/nijuyonkadesu/SAO/releases/download/source-sdk-1.0.0'
@@ -21,7 +42,7 @@ dependencyResolutionManagement {
                 ivy '[module]-[revision].ivy.xml'
             }
             metadataSources { ivyDescriptor() }
-            content { includeGroup 'one.njk.sao' }
+            content { includeModule 'one.njk.sao', 'source-api' }
         }
     }
 }
