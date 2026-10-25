@@ -65,4 +65,4 @@ cd ../SAO-extensions
 
 This writes an AAR/Ivy descriptor under SAO/build/source-sdk; it does not upload anything. A different location can be supplied with `-PsaoSdkRepo=/absolute/path/to/source-sdk`. First-party APKs share the same settings colors, chip roles, icons and typed choice binding through that versioned library; credentials and API work remain extension-owned. Distributed APKs use the release variant, with R8 minification and resource shrinking enabled in all five modules. Debug APKs are for instrumentation and are not distribution artifacts.
 
-Translations: see the [translation contribution guide](docs/translations.md).
+Translations: [Crowdin community translation workflow and setup status](docs/translations.md).

@@ -1,21 +1,46 @@
-# Optional tooling; translations can also be contributed directly as Android XML PRs.
+# Community translations use one public Crowdin project for SAO and all source APKs.
+# Connect both repositories using Crowdin's native GitHub integration.
+# Optional CLI credentials below are environment variable names, never stored tokens.
 project_id_env: CROWDIN_PROJECT_ID
 api_token_env: CROWDIN_PERSONAL_TOKEN
 base_path: .
 preserve_hierarchy: true
+pull_request_title: Update translations from Crowdin
+commit_message: Translate %original_file_name% (%language%) [ci skip]
+append_commit_message: false
 files:
   - source: /immich-extension/src/main/res/values/*strings.xml
     translation: /immich-extension/src/main/res/values-%android_code%/%original_file_name%
     skip_untranslated_strings: true
+    type: android
+    labels:
+      - Immich
+    update_option: update_as_unapproved
   - source: /local-extension/src/main/res/values/*strings.xml
     translation: /local-extension/src/main/res/values-%android_code%/%original_file_name%
     skip_untranslated_strings: true
+    type: android
+    labels:
+      - Local Sticker
+    update_option: update_as_unapproved
   - source: /moeview-extension/src/main/res/values/*strings.xml
     translation: /moeview-extension/src/main/res/values-%android_code%/%original_file_name%
     skip_untranslated_strings: true
+    type: android
+    labels:
+      - Moeview
+    update_option: update_as_unapproved
   - source: /findthatmeme-extension/src/main/res/values/*strings.xml
     translation: /findthatmeme-extension/src/main/res/values-%android_code%/%original_file_name%
     skip_untranslated_strings: true
+    type: android
+    labels:
+      - FindThatMeme
+    update_option: update_as_unapproved
   - source: /googlephotos-extension/src/main/res/values/*strings.xml
     translation: /googlephotos-extension/src/main/res/values-%android_code%/%original_file_name%
     skip_untranslated_strings: true
+    type: android
+    labels:
+      - Google Photos
+    update_option: update_as_unapproved
