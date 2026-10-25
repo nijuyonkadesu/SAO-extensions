@@ -1,7 +1,7 @@
 <resources>
     <string name="import_settings">Collections and processing</string>
-    <string name="import_collection_folder">Indexed in place · %1$d files · %2$d pending</string>
-    <string name="import_collection_picked">Selected media · %1$d files · %2$d pending</string>
+    <string name="import_collection_folder">Indexed in place · %1$s · %2$s</string>
+    <string name="import_collection_picked">Selected media · %1$s · %2$s</string>
     <string name="title">Local Sticker source</string>
     <string name="setup">Choose folders or selected photos, GIFs and videos. Media is indexed automatically and stays with its original storage provider.</string>
     <string name="back">Back</string>
@@ -12,14 +12,14 @@
     <string name="add_folder">Choose a folder</string>
     <string name="rename">Rename</string>
     <string name="remove">Remove</string>
-    <string name="save">@string/source_settings_save</string>
-    <string name="delete">@string/source_settings_remove</string>
+    <string name="save" translatable="false">@string/source_settings_save</string>
+    <string name="delete" translatable="false">@string/source_settings_remove</string>
     <string name="indexing">Automatic indexing</string>
     <string name="index_help">Generates tags and text offline. Images include animations; animation counts update after format checks. GIFs and videos use one frame. Description searches names, tags and detected text.</string>
-    <string name="media_counts">%1$d images (%2$d animated) · %3$d videos</string>
-    <string name="media_counts_growing">Found so far: %1$d images (%2$d animated) · %3$d videos</string>
-    <string name="processing_counts">Labels/OCR: %1$d processed · %2$d remaining · %3$d failed</string>
-    <string name="context_counts">Context: %1$d indexed · %2$d remaining · %3$d failed</string>
+    <string name="media_counts">%1$s (%2$s) · %3$s</string>
+    <string name="media_counts_growing">Found so far: %1$s (%2$s) · %3$s</string>
+    <string name="processing_counts">Labels/OCR: %1$s · %2$s · %3$s</string>
+    <string name="context_counts">Context: %1$s · %2$s · %3$s</string>
     <string name="album_embedding">Creating Context index…</string>
     <string name="album_indexing">Indexing media…</string>
     <string name="context_title">Context search</string>
@@ -45,7 +45,10 @@
     <string name="album_paused">Paused — progress saved</string>
     <string name="album_permission">Media access required</string>
     <string name="album_unavailable">Collection unavailable</string>
-    <string name="folder_problem">%1$d collections unavailable. Restore access or rescan to retry.</string>
+    <plurals name="folder_problem">
+        <item quantity="one">%1$d collection unavailable. Restore access or rescan to retry.</item>
+        <item quantity="other">%1$d collections unavailable. Restore access or rescan to retry.</item>
+    </plurals>
     <string name="processing_problem">Rescan folders to retry failed files.</string>
     <string name="pause_album">Pause</string>
     <string name="resume_album">Resume</string>
@@ -58,12 +61,8 @@
     <string name="edit_metadata">Browse and correct metadata</string>
     <string name="saved_first">Save this source to start indexing.</string>
     <string name="paused">Indexing paused. Existing indexed files remain available.</string>
-    <string name="discovering">Scanning folders… %1$d files found; %2$d awaiting analysis.</string>
-    <string name="analyzing">%1$d files indexed; %2$d awaiting analysis.</string>
-    <string name="indexed">%1$d files indexed.</string>
-    <string name="index_errors">%1$s %2$d files could not be analyzed; %3$d folders unavailable. Rescan to retry; choose a folder again to restore access.</string>
     <string name="constraints">Checks connected folders when you search and about every six hours in the background. Unchanged files keep their tags and embeddings. Rescan checks now. Processing waits when battery or storage is low.</string>
-    <string name="profile_summary">%1$d collections · %2$d indexed</string>
+    <string name="profile_summary">%1$s · %2$s</string>
     <string name="configuration_error">Enter a name and add at least one readable collection.</string>
     <string name="folder_error">Could not read that folder. Choose it again using the system picker.</string>
     <string name="storage_error">Could not read or save this source. Your original files were not changed.</string>
@@ -126,4 +125,44 @@
     <string name="picker_files_short">Files</string>
     <string name="model_immich_short">Immich default</string>
     <string name="model_lite_short">CLIP 8-bit</string>
+    <plurals name="count_image">
+        <item quantity="one">%1$d image</item>
+        <item quantity="other">%1$d images</item>
+    </plurals>
+    <plurals name="count_animated">
+        <item quantity="one">%1$d animated</item>
+        <item quantity="other">%1$d animated</item>
+    </plurals>
+    <plurals name="count_video">
+        <item quantity="one">%1$d video</item>
+        <item quantity="other">%1$d videos</item>
+    </plurals>
+    <plurals name="count_processed">
+        <item quantity="one">%1$d processed</item>
+        <item quantity="other">%1$d processed</item>
+    </plurals>
+    <plurals name="count_remaining">
+        <item quantity="one">%1$d remaining</item>
+        <item quantity="other">%1$d remaining</item>
+    </plurals>
+    <plurals name="count_failed">
+        <item quantity="one">%1$d failed</item>
+        <item quantity="other">%1$d failed</item>
+    </plurals>
+    <plurals name="count_collection">
+        <item quantity="one">%1$d collection</item>
+        <item quantity="other">%1$d collections</item>
+    </plurals>
+    <plurals name="count_indexed">
+        <item quantity="one">%1$d indexed</item>
+        <item quantity="other">%1$d indexed</item>
+    </plurals>
+    <plurals name="count_file">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <plurals name="count_pending">
+        <item quantity="one">%1$d pending</item>
+        <item quantity="other">%1$d pending</item>
+    </plurals>
 </resources>

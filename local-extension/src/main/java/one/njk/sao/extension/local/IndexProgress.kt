@@ -6,6 +6,7 @@ import one.njk.sao.extension.local.databinding.IndexProgressBinding
 /** Render durable counts; animation is reserved for actual running work with an unknown total. */
 internal fun IndexProgressBinding.bind(status: IndexStatus?, paused: Boolean, work: IndexWork, estimate: IndexEta?=null) {
     val context=root.context
+    fun count(resource: Int, value: Int)=context.resources.getQuantityString(resource,value,value)
     val activeWork=if(estimate==IndexEta.Waiting && work==IndexWork.RUNNING) IndexWork.WAITING else work
     phase.setText(when {
         status==null -> R.string.saved_first
@@ -31,9 +32,9 @@ internal fun IndexProgressBinding.bind(status: IndexStatus?, paused: Boolean, wo
     contextCounts.isVisible=status?.contextSearch==true
     if(status!=null) {
         mediaCounts.text=context.getString(if(status.scanning) R.string.media_counts_growing else R.string.media_counts,
-            status.images,status.animated,status.videos)
-        processingCounts.text=context.getString(R.string.processing_counts,status.processed,status.pending,status.failed)
-        contextCounts.text=context.getString(R.string.context_counts,status.contextProcessed,status.contextPending,status.contextFailed)
+            count(R.plurals.count_image,status.images),count(R.plurals.count_animated,status.animated),count(R.plurals.count_video,status.videos))
+        processingCounts.text=context.getString(R.string.processing_counts,count(R.plurals.count_processed,status.processed),count(R.plurals.count_remaining,status.pending),count(R.plurals.count_failed,status.failed))
+        contextCounts.text=context.getString(R.string.context_counts,count(R.plurals.count_indexed,status.contextProcessed),count(R.plurals.count_remaining,status.contextPending),count(R.plurals.count_failed,status.contextFailed))
     }
     val running=status!=null && !paused && !status.paused && activeWork==IndexWork.RUNNING
     val show=status!=null && (status.total>0 && !status.scanning || running && status.scanning)
@@ -62,7 +63,7 @@ internal fun IndexProgressBinding.bind(status: IndexStatus?, paused: Boolean, wo
     }
     val message=when {
         status==null -> null
-        status.folderErrors>0 -> context.getString(R.string.folder_problem,status.folderErrors)
+        status.folderErrors>0 -> context.resources.getQuantityString(R.plurals.folder_problem,status.folderErrors,status.folderErrors)
         status.failed+status.contextFailed>0 -> context.getString(R.string.processing_problem)
         else -> null
     }

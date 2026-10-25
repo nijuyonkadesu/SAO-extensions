@@ -4,7 +4,7 @@
         <package android:name="one.njk.sao" />
         <package android:name="one.njk.sao.testing" />
     </queries>
-    <application
+    <application android:supportsRtl="true"
         android:label="@string/app_name"
         android:theme="@style/Theme.FindThatMemeExtension"
         android:allowBackup="false"

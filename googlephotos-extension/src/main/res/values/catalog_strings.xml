@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Labels only: backend query terms and tag IDs are deliberately not translated. -->
+    <string name="category_memes">Memes</string>
+    <string name="category_screenshots">Screenshots</string>
+    <string name="category_cats">Cats</string>
+    <string name="category_dogs">Dogs</string>
+    <string name="category_documents">Documents</string>
+    <string name="category_food">Food</string>
+    <string name="profile_account">Google Photos · Account %1$d</string>
+    <string name="native_connect_title">Connect Google Photos to SAO</string>
+    <string name="album_item_count">%1$s (%2$s)</string>
+</resources>

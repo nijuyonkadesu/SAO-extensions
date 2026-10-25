@@ -7,14 +7,10 @@ import java.util.UUID
 
 /** Domain mapping only. SAO chooses when to request the next page and owns all media bytes. */
 internal class FindThatMemeRecords(private val store: FindThatMemeProfiles) {
-    fun capabilities() = SourceCapabilities(
+    fun capabilities(categories: List<SourceCategory> = emptyList()) = SourceCapabilities(
         modes = setOf(SearchMode.DESCRIPTION), facets = setOf(SearchFacet.MEDIA),
         defaultMode = SearchMode.DESCRIPTION,
-        categories = listOf("This is fine" to "this is fine", "No idea" to "i have no idea what i am doing",
-            "Distracted boyfriend" to "distracted boyfriend", "Please stop" to "please stop",
-            "Trolley problem" to "trolley problem", "Cats" to "cat").mapIndexed { index, (label, text) ->
-            SourceCategory("meme-$index", label, MediaQuery(text, mode = SearchMode.DESCRIPTION))
-        },
+        categories = categories,
     )
 
     suspend fun page(profile: FindThatMemeProfile, source: String, query: MediaQuery, cursor: String?, api: FindThatMemeApi): MediaPage {

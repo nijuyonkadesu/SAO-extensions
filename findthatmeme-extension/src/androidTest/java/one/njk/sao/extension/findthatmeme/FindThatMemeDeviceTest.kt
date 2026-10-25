@@ -177,7 +177,7 @@ class FindThatMemeDeviceTest {
         assertTrue(first.items.isEmpty()); assertNotNull(first.nextCursor)
         assertEquals(1, page(row, cursor = first.nextCursor).items.size)
         val all = profile(FindThatMemeConfig(sensitive = true))
-        assertTrue(all.publicProfile().nsfw); assertEquals(50, page(all).items.size)
+        assertTrue(all.publicProfile(app).nsfw); assertEquals(50, page(all).items.size)
     }
 
     @Test fun originalGifAndVideosStreamExactBytesWithSharedStaticCacheKeys(): Unit = runBlocking {

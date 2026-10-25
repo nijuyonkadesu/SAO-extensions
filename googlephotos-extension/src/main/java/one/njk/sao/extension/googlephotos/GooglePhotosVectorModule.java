@@ -35,6 +35,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
     private boolean installed;
     private String lastNonce;
     private String pendingNonce;
+    private String pendingLanguageTags;
 
     @Override public void onModuleLoaded(ModuleLoadedParam param) {
         if (param.isSystemServer() || !PHOTOS.equals(param.getProcessName())) return;
@@ -107,6 +108,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
         if (nonce == null || !nonce.matches("[A-Za-z0-9_-]{43}") || nonce.equals(lastNonce)) return;
         intent.removeExtra(EXTRA);
         pendingNonce = nonce;
+        pendingLanguageTags = one.njk.sao.source.SourceLocales.INSTANCE.validated(intent.getStringExtra(one.njk.sao.source.SourceLocales.EXTRA_LANGUAGE_TAGS));
         Log.i("SAO.GooglePhotos", "Connect intent received");
     }
     private void connect(Activity activity, Intent intent) {
@@ -116,7 +118,8 @@ public final class GooglePhotosVectorModule extends XposedModule {
         if (nonce == null || nonce.equals(lastNonce)) return;
         pendingNonce = null;
         lastNonce = nonce;
-        main.post(() -> new Connection(activity, nonce).start());
+        String languages = pendingLanguageTags; pendingLanguageTags = null;
+        main.post(() -> new Connection(activity, nonce, languages).start());
     }
 
     private final class Connection implements ServiceConnection {
@@ -124,6 +127,7 @@ public final class GooglePhotosVectorModule extends XposedModule {
         final Context context;
         final String nonce;
         final String renewalAccount;
+        final String languageTags;
         final ExecutorService io = Executors.newSingleThreadExecutor(r -> {
             Thread thread = new Thread(r, "SAO Photos connect"); thread.setDaemon(true); return thread;
         });
@@ -134,13 +138,13 @@ public final class GooglePhotosVectorModule extends XposedModule {
         boolean finished;
         final Runnable timeout = () -> finish("", "", "CONNECT_CANCELLED");
 
-        Connection(Activity current, String nonce) {
+        Connection(Activity current, String nonce, String languages) {
             activity = new WeakReference<>(current); context = current.getApplicationContext(); this.nonce = nonce;
-            renewalAccount = null;
+            renewalAccount = null; languageTags = languages;
         }
         Connection(Context current, String nonce, String account) {
             activity = new WeakReference<>(null); context = current.getApplicationContext(); this.nonce = nonce;
-            renewalAccount = account;
+            renewalAccount = account; languageTags = null;
         }
         void start() {
             try {
@@ -196,9 +200,10 @@ public final class GooglePhotosVectorModule extends XposedModule {
                 if (accounts.length == 0) { finish("", "", "ACCOUNT_MISSING"); return; }
                 String[] names = new String[accounts.length];
                 for (int i = 0; i < accounts.length; i++) names[i] = accounts[i].name;
-                dialog = new AlertDialog.Builder(current).setTitle("Connect Google Photos to SAO")
+                Context strings = one.njk.sao.source.SourceLocales.INSTANCE.context(current.createPackageContext(modulePackage, 0), languageTags);
+                dialog = new AlertDialog.Builder(current).setTitle(strings.getString(R.string.native_connect_title))
                     .setItems(names, (d, index) -> token(current, accounts[index]))
-                    .setNegativeButton(android.R.string.cancel, (d, which) -> finish("", "", "CONNECT_CANCELLED"))
+                    .setNegativeButton(strings.getString(android.R.string.cancel), (d, which) -> finish("", "", "CONNECT_CANCELLED"))
                     .setOnCancelListener(d -> finish("", "", "CONNECT_CANCELLED")).show();
                 Log.i("SAO.GooglePhotos", "Account chooser displayed");
             } catch (Exception ignored) { finish("", "", "AUTH_UNSUPPORTED"); }

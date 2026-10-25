@@ -6,15 +6,11 @@ import java.time.Instant
 
 /** Maps one requested page; neither media bytes nor prior search results are persisted here. */
 internal class GooglePhotosRecords(private val store: GooglePhotosProfiles) {
-    fun capabilities(profile: GooglePhotosProfile) = SourceCapabilities(
+    fun capabilities(profile: GooglePhotosProfile, categories: List<SourceCategory> = emptyList()) = SourceCapabilities(
         // Google's Text matches includes OCR and textual metadata; explained in the source settings.
         modes = if (profile.config.album.isEmpty()) setOf(SearchMode.CONTEXT, SearchMode.OCR) else emptySet(),
         defaultMode = SearchMode.CONTEXT,
-        categories = if (profile.config.album.isNotEmpty()) emptyList() else listOf(
-            "Memes" to "memes", "Screenshots" to "screenshots", "Cats" to "cats", "Dogs" to "dogs",
-            "Documents" to "documents", "Food" to "food").map { (label, text) ->
-            SourceCategory(text, label, MediaQuery(text))
-        },
+        categories = if (profile.config.album.isEmpty()) categories else emptyList(),
     )
 
     suspend fun page(profile: GooglePhotosProfile, source: String, query: MediaQuery, cursor: String?, api: GooglePhotosApi): MediaPage {

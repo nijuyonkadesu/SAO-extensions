@@ -12,6 +12,7 @@ class MoeviewExtensionService : ExtensionService() {
     override fun descriptor()=JSONObject().put("name","Moeview")
     override fun failure(error: Exception)=MoeviewRuntime.failure(error)
     override suspend fun execute(profile: String,operation: String,payload: JSONObject,caller: String): JSONObject {
+        val strings = SourceLocales.context(this, payload)
         val store=runtime.profiles
         if(operation==ExtensionProtocol.PROFILES) {
             val all=store.list(); val fingerprint=digest(all.joinToString("|") { "${it.id}:${it.name}:${it.revision}" })
@@ -21,7 +22,7 @@ class MoeviewExtensionService : ExtensionService() {
                 cursor[1].toIntOrNull()?.takeIf { it in 0..all.size } ?: throw ExtensionFailure("INVALID_RESPONSE")
             }
             val rows=all.drop(offset).take(100)
-            return JSONObject().put("profiles",JSONArray(rows.map { SourceWire.profile(it.publicProfile()) }))
+            return JSONObject().put("profiles",JSONArray(rows.map { SourceWire.profile(it.publicProfile(strings)) }))
                 .put("next","$fingerprint:${offset+rows.size}".takeIf { offset+rows.size<all.size })
         }
         val row=store.get(profile)
@@ -31,10 +32,10 @@ class MoeviewExtensionService : ExtensionService() {
         }
         val source=payload.getString("source"); val records=MoeviewRecords(store)
         return when(operation) {
-            ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(records.capabilities(row.config))
+            ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(records.capabilities(MoeviewCategories.forBoard(row.config.board, strings)))
             ExtensionProtocol.SEARCH -> runtime.use(row) { SourceWire.page(records.page(row,source,SourceWire.query(payload.getJSONObject("query")),SourceWire.nullable(payload,"cursor"),it)) }
             ExtensionProtocol.SUGGESTIONS -> runtime.use(row) { SourceWire.suggestions(MoeviewSuggestions.query(row,
-                SourceWire.query(payload.getJSONObject("query")),payload.getInt("cursor"),it)) }
+                SourceWire.query(payload.getJSONObject("query")),payload.getInt("cursor"),it,strings)) }
             ExtensionProtocol.FILTERS -> JSONObject().put("values",JSONArray())
             ExtensionProtocol.MEDIA -> {
                 val item=SourceWire.item(payload.getJSONObject("item"))

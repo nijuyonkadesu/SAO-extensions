@@ -15,6 +15,7 @@ class ImmichExtensionService : ExtensionService() {
     override fun acceptsCaller(uid: Int): String? = super.acceptsCaller(uid)?.takeIf { it in setOf("one.njk.sao","one.njk.sao.testing",packageName) }
     override fun descriptor() = JSONObject().put("name","Immich")
     override suspend fun execute(profile: String, operation: String, payload: JSONObject, caller: String): JSONObject {
+        val strings = SourceLocales.context(this, payload)
         if (operation == ExtensionProtocol.PROFILES) {
             val all = connections.list()
             val fingerprint = digest(all.joinToString("|") { "${it.id}:${it.name}:${it.revision}" })
@@ -24,26 +25,26 @@ class ImmichExtensionService : ExtensionService() {
                 cursor[1].toIntOrNull()?.takeIf { it in 0..all.size } ?: throw ExtensionFailure("INVALID_RESPONSE")
             }
             val rows = all.drop(start).take(100)
-            return JSONObject().put("profiles",JSONArray(rows.map { SourceWire.profile(it.publicProfile()) }))
+            return JSONObject().put("profiles",JSONArray(rows.map { SourceWire.profile(it.publicProfile(strings)) }))
                 .put("next","$fingerprint:${start+rows.size}".takeIf { start+rows.size < all.size })
         }
         if (operation == ExtensionProtocol.IMPORT) {
             val legacy = payload.getJSONObject("configuration")
             val value = connections.save(profile,payload.getString("name"),ImmichConfig(legacy.getString("url"),legacy.getString("key"),
                 legacy.optBoolean("smart",true),legacy.optString("album").takeIf(String::isNotBlank)))
-            return SourceWire.profile(value.publicProfile())
+            return SourceWire.profile(value.publicProfile(strings))
         }
         val connection = connections.get(profile)
         if(payload.getString("revision") != connection.revision) throw ExtensionFailure("PROFILE_CHANGED")
         if (operation == ExtensionProtocol.DELETE_PROFILE) { connections.delete(profile); return JSONObject() }
         val identity = payload.getString("source")
-        if(operation==ExtensionProtocol.IMPORT_OPTIONS) return ImportWire.options(ImmichImports(this,connection).options())
+        if(operation==ExtensionProtocol.IMPORT_OPTIONS) return ImportWire.options(ImmichImports(strings,connection).options())
         if(operation==ExtensionProtocol.IMPORT_MEDIA) return ImportWire.receipt(ImmichImports(this,connection).upload(ImportWire.request(payload,caller)))
         if(operation==ExtensionProtocol.IMPORT_COMPLETE || operation==ExtensionProtocol.IMPORT_CANCEL) return JSONObject()
         ImmichAdapter(connection.config,identity,FloatingDispatchers(),ImmichProfileScope(connection.id,connection.revision)).use { source ->
             return when (operation) {
                 ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(source.searchModes().let { modes -> SourceCapabilities(modes,SearchFacet.entries.toSet(),random=true,sequence=true,
-                    defaultMode=if(SearchMode.CONTEXT in modes) SearchMode.CONTEXT else SearchMode.FILENAME, categories=ImmichHomeCategories.values,imports=true) })
+                    defaultMode=if(SearchMode.CONTEXT in modes) SearchMode.CONTEXT else SearchMode.FILENAME, categories=ImmichHomeCategories.values(strings),imports=true) })
                 ExtensionProtocol.SEARCH -> SourceWire.page(source.page(SourceWire.query(payload.getJSONObject("query")),SourceWire.nullable(payload,"cursor")))
                 ExtensionProtocol.FILTERS -> ImmichResponses.values(source.filters())
                 ExtensionProtocol.PEOPLE -> ImmichResponses.people(source.people(payload.optString("name"),payload.optInt("page",1),identity))

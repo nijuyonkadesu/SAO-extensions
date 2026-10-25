@@ -44,7 +44,7 @@ class GooglePhotosSettingsActivity : SourceSettingsActivity() {
         var albumDialog: androidx.appcompat.app.AlertDialog? = null
         binding.sourceName.doAfterTextChanged { if (!rendering) model.name(it.toString()) }
         binding.accountIndex.doAfterTextChanged { if (!rendering) model.account(it.toString()) }
-        binding.connectVector.setOnClickListener { model.connect(::startActivity) }
+        binding.connectVector.setOnClickListener { model.connect(one.njk.sao.source.SourceLocales.languageTags(this),::startActivity) }
         binding.cancelConnection.setOnClickListener { model.cancelConnection() }
         binding.checkService.setOnClickListener { model.check() }
         val scope=SourceScopeChips(binding.allMedia,binding.chooseAlbum,{ model.album(null) },{ model.albums() })
@@ -89,7 +89,7 @@ class GooglePhotosSettingsActivity : SourceSettingsActivity() {
                     binding.cancelConnection.isVisible = state.working && state.status == R.string.waiting_vector
                     if (state.chooseAlbum && albumDialog == null) {
                         albumDialog = MaterialAlertDialogBuilder(this@GooglePhotosSettingsActivity).setTitle(R.string.album_heading)
-                            .setSingleChoiceItems((listOf(getString(R.string.whole_library)) + state.albums.map { "${it.name} (${it.count})" }).toTypedArray(),
+                            .setSingleChoiceItems((listOf(getString(R.string.whole_library)) + state.albums.map { getString(R.string.album_item_count,it.name,java.text.NumberFormat.getIntegerInstance(resources.configuration.locales[0]).format(it.count)) }).toTypedArray(),
                                 if(state.config.album.isEmpty()) 0 else state.albums.indexOfFirst { it.key==state.config.album }.let { if(it<0) -1 else it+1 }) { dialog,index ->
                                 model.album(state.albums.getOrNull(index - 1)); dialog.dismiss()
                             }.setNegativeButton(android.R.string.cancel) { _, _ -> model.closeAlbums() }

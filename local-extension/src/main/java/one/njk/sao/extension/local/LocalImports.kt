@@ -28,7 +28,8 @@ internal class LocalImports(private val context: Context, private val store: Loc
             collections=library.folders.map { folder ->
                 val index=overview.folders[folder.uri]
                 ImportCollection(folder.name,context.getString(if(folder.kind==CollectionKind.TREE) R.string.import_collection_folder else R.string.import_collection_picked,
-                    index?.total ?: 0,index?.pending ?: 0))
+                    context.resources.getQuantityString(R.plurals.count_file,index?.total ?: 0,index?.total ?: 0),
+                    context.resources.getQuantityString(R.plurals.count_pending,index?.pending ?: 0,index?.pending ?: 0)))
             },settingsLabel=context.getString(R.string.import_settings))
     }
     suspend fun copy(request: MediaImportRequest): ImportReceipt = lock.withLock {

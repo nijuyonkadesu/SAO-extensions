@@ -34,7 +34,8 @@ class LocalSettingsViewModel(app: Application, private val saved: SavedStateHand
     private val importPreferences=Mutex()
     private val selections=mutableMapOf<String,List<String>>()
     internal val importsUnchanged get()=state.value.library?.let { state.value.folders.map { folder -> Triple(folder.uri,folder.name,folder.kind) }==it.folders.map { folder -> Triple(folder.uri,folder.name,folder.kind) } && selections.isEmpty() }==true
-    var name=app.getString(R.string.default_name)
+    private val strings=one.njk.sao.source.SourceLocales.context(app,saved.get<String>(one.njk.sao.source.SourceLocales.EXTRA_LANGUAGE_TAGS))
+    var name=strings.getString(R.string.default_name)
         set(value) { field=value; if(state.value.loaded) saved[DRAFT_NAME]=value }
     private data class Draft(val name: String,val folders: List<Triple<String,String,CollectionKind>>,val context: Boolean,val model: String,val nsfw: Boolean)
     private fun draft()=state.value.let { Draft(name,it.folders.map { folder -> Triple(folder.uri,folder.name,folder.kind) },it.useContext,it.selectedModel.id,it.nsfw) }
@@ -116,7 +117,7 @@ class LocalSettingsViewModel(app: Application, private val saved: SavedStateHand
                 require(accepted.isNotEmpty())
                 val root=target ?: "selection:${UUID.randomUUID()}"
                 selections[root]=(selections[root].orEmpty()+accepted).distinct()
-                mutable.update { before -> before.copy(folders=if(before.folders.any { it.uri==root }) before.folders else before.folders+Folder(root,getApplication<Application>().getString(R.string.selected_media),kind=CollectionKind.SELECTION)) }
+                mutable.update { before -> before.copy(folders=if(before.folders.any { it.uri==root }) before.folders else before.folders+Folder(root,strings.getString(R.string.selected_media),kind=CollectionKind.SELECTION)) }
                 saveCollections()
             } catch(cancelled: CancellationException) { throw cancelled }
             catch(_: Exception) { mutable.update { it.copy(error=R.string.media_import_error) } }

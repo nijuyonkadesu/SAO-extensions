@@ -74,7 +74,7 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
             mutable.value = state.value.copy(config = state.value.config.copy(account = value.toIntOrNull() ?: -1, nativeAccount = "", nativeSession = ""))
         }
     }
-    fun connect(launch: (Intent) -> Unit) = work {
+    fun connect(languageTags: String, launch: (Intent) -> Unit) = work {
         val app = getApplication<Application>()
         val intent = withContext(Dispatchers.IO) {
             val info = app.packageManager.getApplicationInfo(GooglePhotosConnect.PHOTOS, 0)
@@ -87,7 +87,7 @@ internal class GooglePhotosSettingsViewModel(app: Application, saved: SavedState
             withContext(Dispatchers.IO) { visibility = GooglePhotosVisibility.grant(app) }
             android.util.Log.i("SAO.GooglePhotos", "Connect requested; temporary package visibility granted")
             mutable.value = state.value.copy(status = R.string.waiting_vector)
-            launch(intent.putExtra(GooglePhotosConnect.EXTRA, pending.nonce).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+            launch(intent.putExtra(one.njk.sao.source.SourceLocales.EXTRA_LANGUAGE_TAGS,languageTags).putExtra(GooglePhotosConnect.EXTRA, pending.nonce).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
             val result = withTimeout(115_000) { pending.result.await() }
             android.util.Log.i("SAO.GooglePhotos", "Native login received; exchanging web session")
             val config = GooglePhotosApi.connect(result.loginUrl, result.account, runtime.http())

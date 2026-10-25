@@ -64,10 +64,13 @@ class LocalExtensionService : ExtensionService() {
     override fun acceptsCaller(uid: Int) = super.acceptsCaller(uid)?.takeIf { it in setOf("one.njk.sao","one.njk.sao.testing",packageName) }
     override fun descriptor()=JSONObject().put("name","Local Sticker")
     override suspend fun execute(profile: String, operation: String, payload: JSONObject, caller: String): JSONObject {
+        val strings = SourceLocales.context(this, payload)
         if(operation==ExtensionProtocol.PROFILES) {
             val profiles=store.libraries().map { library ->
                 val status=store.status(library.id)
-                ExtensionProfile(library.id,library.name,library.revision,getString(R.string.profile_summary,library.folders.size,status.total),nsfw=library.nsfw)
+                ExtensionProfile(library.id,library.name,library.revision,strings.getString(R.string.profile_summary,
+                    strings.resources.getQuantityString(R.plurals.count_collection,library.folders.size,library.folders.size),
+                    strings.resources.getQuantityString(R.plurals.count_indexed,status.total,status.total)),nsfw=library.nsfw)
             }
             val fingerprint=digest(profiles.joinToString { "${it.id}:${it.name}:${it.revision}:${it.nsfw}" })
             val cursor=SourceWire.nullable(payload,"cursor")?.split(':')
@@ -90,7 +93,7 @@ class LocalExtensionService : ExtensionService() {
         val source=payload.getString("source")
         val catalog=LocalCatalog(store,library,source)
         return when(operation) {
-            ExtensionProtocol.IMPORT_OPTIONS -> ImportWire.options(LocalImports(this,store,library).options())
+            ExtensionProtocol.IMPORT_OPTIONS -> ImportWire.options(LocalImports(strings,store,library).options())
             ExtensionProtocol.IMPORT_MEDIA -> ImportWire.receipt(LocalImports(this,store,library).copy(ImportWire.request(payload,caller)))
             ExtensionProtocol.IMPORT_COMPLETE -> { FolderIndexer.imported(this,library); JSONObject() }
             ExtensionProtocol.IMPORT_CANCEL -> { LocalImports(this,store,library).cancel(SourceWire.strings(payload.getJSONArray("ids"))); JSONObject() }
@@ -100,7 +103,7 @@ class LocalExtensionService : ExtensionService() {
                 val context=library.contextSearch && ClipModels.ready(this,ClipCatalog.get(library.contextModel))
                 val modes=setOf(SearchMode.FILENAME,SearchMode.DESCRIPTION,SearchMode.PATH,SearchMode.OCR)+(if(context) setOf(SearchMode.CONTEXT) else emptySet())
                 SourceWire.capabilities(SourceCapabilities(modes,setOf(SearchFacet.MEDIA,SearchFacet.EMOJI_TAGS),random=true,sequence=true,
-                    defaultMode=if(context) SearchMode.CONTEXT else SearchMode.DESCRIPTION,changesUri=updates.toString(),categories=LocalHomeCategories.values,imports=true))
+                    defaultMode=if(context) SearchMode.CONTEXT else SearchMode.DESCRIPTION,changesUri=updates.toString(),categories=LocalHomeCategories.values(strings),imports=true))
             }
             ExtensionProtocol.SEARCH -> {
                 val query=SourceWire.query(payload.getJSONObject("query")); val cursor=SourceWire.nullable(payload,"cursor")

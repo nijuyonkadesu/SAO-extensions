@@ -17,7 +17,7 @@ internal class ImmichImports(private val context: Context, private val connectio
         val permissions=client.api.apiKey()
         if(!permissions.allows("asset.upload")) return@use ImportOptions()
         val album=connection.config.albumId
-        val target=if(album==null) "All media" else {
+        val target=if(album==null) context.getString(R.string.profile_all_media) else {
             if(!permissions.allows("album.read") || !permissions.allows("albumAsset.create")) return@use ImportOptions()
             // Shared read-only albums must not become upload destinations by accident.
             client.api.albums(owned=true).firstOrNull { it.id==album }?.albumName ?: return@use ImportOptions()

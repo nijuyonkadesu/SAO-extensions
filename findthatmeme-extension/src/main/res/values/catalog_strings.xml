@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Labels only: backend query terms and tag IDs are deliberately not translated. -->
+    <string name="category_this_is_fine">This is fine</string>
+    <string name="category_no_idea">No idea</string>
+    <string name="category_distracted_boyfriend">Distracted boyfriend</string>
+    <string name="category_please_stop">Please stop</string>
+    <string name="category_trolley_problem">Trolley problem</string>
+    <string name="category_cats">Cats</string>
+    <string name="profile_all_ratings">All ratings</string>
+    <string name="profile_sensitive_filtered">Sensitive results filtered</string>
+</resources>

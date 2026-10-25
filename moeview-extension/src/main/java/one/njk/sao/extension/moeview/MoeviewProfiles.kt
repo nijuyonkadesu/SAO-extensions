@@ -45,7 +45,7 @@ data class MoeviewConfig(val board: Board=Board.KONACHAN,val rating: SfwMode=Sfw
     }
 }
 data class MoeviewProfile(val id: String,val name: String,val revision: String,val config: MoeviewConfig) {
-    fun publicProfile()=ExtensionProfile(id,name,revision,"${config.board.label} · ${when(config.rating) { SfwMode.SFW -> "Safe only"; SfwMode.NSFW -> "Non-safe only"; SfwMode.ALL -> "All ratings" }}",nsfw=config.rating!=SfwMode.SFW)
+    fun publicProfile(context: Context)=ExtensionProfile(id,name,revision,"${config.board.label} · ${when(config.rating) { SfwMode.SFW -> context.getString(R.string.rating_safe); SfwMode.NSFW -> context.getString(R.string.rating_non_safe); SfwMode.ALL -> context.getString(R.string.rating_all) }}",nsfw=config.rating!=SfwMode.SFW)
 }
 
 /** Private profiles and authenticated opaque references survive process death, with no result/media cache. */

@@ -8,11 +8,11 @@ import org.json.JSONObject
 
 /** Domain translation only: one requested page, and an opaque query/profile-bound continuation. */
 class MoeviewRecords(private val store: MoeviewProfiles) {
-    fun capabilities(config: MoeviewConfig)=SourceCapabilities(setOf(SearchMode.DESCRIPTION),random=false,
-        defaultMode=SearchMode.DESCRIPTION,suggestionModes=setOf(SearchMode.DESCRIPTION),categories=MoeviewCategories.forBoard(config.board))
+    fun capabilities(categories: List<SourceCategory> = emptyList())=SourceCapabilities(setOf(SearchMode.DESCRIPTION),random=false,
+        defaultMode=SearchMode.DESCRIPTION,suggestionModes=setOf(SearchMode.DESCRIPTION),categories=categories)
     suspend fun page(profile: MoeviewProfile,source: String,query: MediaQuery,cursor: String?,api: BooruApi): MediaPage {
         val config=profile.config
-        val normalized=capabilities(config).normalize(query)
+        val normalized=capabilities().normalize(query)
         val fingerprint=digest(SourceWire.query(normalized).toString())
         val index=cursor?.let { token -> bound(profile,store.open(token)).let {
             if(it.getString("query")!=fingerprint) throw ExtensionFailure("INVALID_RESPONSE")

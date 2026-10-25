@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <queries><package android:name="one.njk.sao" /><package android:name="one.njk.sao.testing" /></queries>
-    <application android:label="@string/app_name" android:theme="@style/Theme.MoeviewExtension" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@mipmap/ic_extension" android:roundIcon="@mipmap/ic_extension">
+    <application android:supportsRtl="true" android:label="@string/app_name" android:theme="@style/Theme.MoeviewExtension" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@mipmap/ic_extension" android:roundIcon="@mipmap/ic_extension">
         <service android:name=".MoeviewExtensionService" android:permission="one.njk.sao.permission.SOURCE_EXTENSION" android:label="@string/provider_name" android:exported="true">
             <intent-filter><action android:name="one.njk.sao.source.EXTENSION" /></intent-filter>
             <meta-data android:name="one.njk.sao.source.API_VERSION" android:value="1" />

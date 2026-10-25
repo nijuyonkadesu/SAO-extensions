@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Labels only: backend query terms and tag IDs are deliberately not translated. -->
+    <string name="category_all">All</string>
+    <string name="category_happy">Happy</string>
+    <string name="category_love">Love</string>
+    <string name="category_surprised">Surprised</string>
+    <string name="category_cats">Cats</string>
+    <string name="category_dogs">Dogs</string>
+    <string name="category_nature">Nature</string>
+    <string name="category_food">Food</string>
+    <string name="profile_all_media">All media</string>
+    <string name="profile_selected_album">Selected album</string>
+</resources>

@@ -55,8 +55,8 @@ data class GooglePhotosConfig(val cookies: String = "", val account: Int = 0,
 }
 
 data class GooglePhotosProfile(val id: String, val name: String, val revision: String, val config: GooglePhotosConfig) {
-    fun publicProfile() = ExtensionProfile(id, name, revision,
-        config.albumName.ifBlank { "Google Photos · Account ${config.account + 1}" })
+    fun publicProfile(context: Context) = ExtensionProfile(id, name, revision,
+        config.albumName.ifBlank { context.getString(R.string.profile_account, config.account + 1) })
 }
 
 /** Private profiles and authenticated opaque references survive process death, with no result/media cache. */

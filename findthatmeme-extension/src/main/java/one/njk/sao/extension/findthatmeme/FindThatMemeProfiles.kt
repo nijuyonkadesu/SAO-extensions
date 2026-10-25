@@ -31,8 +31,8 @@ data class FindThatMemeConfig(val terms: String = "", val sensitive: Boolean = f
 }
 
 data class FindThatMemeProfile(val id: String, val name: String, val revision: String, val config: FindThatMemeConfig) {
-    fun publicProfile() = ExtensionProfile(id, name, revision,
-        if (config.sensitive) "All ratings" else "Sensitive results filtered", nsfw = config.sensitive)
+    fun publicProfile(context: Context) = ExtensionProfile(id, name, revision,
+        context.getString(if (config.sensitive) R.string.profile_all_ratings else R.string.profile_sensitive_filtered), nsfw = config.sensitive)
 }
 
 /** Private profiles and authenticated opaque references survive process death, with no result/media cache. */

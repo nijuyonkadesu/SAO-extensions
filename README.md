@@ -54,13 +54,15 @@ Migration validation: all four standalone debug and optimized release builds pas
 
 ### Building the shared settings redesign locally
 
-Source API remains 1.0.0; the shared Views settings library is 1.0.1. Until its SDK assets are published, stage that library from the adjacent SAO checkout, then build this repository normally:
+Source API and the shared Views settings library use SDK 1.1.0. Until its SDK assets are published, stage both libraries from the adjacent SAO checkout, then build this repository normally:
 
 ```sh
 cd ../SAO
-./gradlew :source-settings:publishSourceSdkPublicationToSourceSdkRepository
+./gradlew :source-api:publishSourceSdkPublicationToSourceSdkRepository :source-settings:publishSourceSdkPublicationToSourceSdkRepository
 cd ../SAO-extensions
 ./gradlew assembleRelease
 ```
 
 This writes an AAR/Ivy descriptor under SAO/build/source-sdk; it does not upload anything. A different location can be supplied with `-PsaoSdkRepo=/absolute/path/to/source-sdk`. First-party APKs share the same settings colors, chip roles, icons and typed choice binding through that versioned library; credentials and API work remain extension-owned. Distributed APKs use the release variant, with R8 minification and resource shrinking enabled in all five modules. Debug APKs are for instrumentation and are not distribution artifacts.
+
+Translations: see the [translation contribution guide](docs/translations.md).

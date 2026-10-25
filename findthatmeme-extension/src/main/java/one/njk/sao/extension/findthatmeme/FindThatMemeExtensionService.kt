@@ -12,6 +12,7 @@ class FindThatMemeExtensionService : ExtensionService() {
     override fun failure(error: Exception): ExtensionFailure = FindThatMemeRuntime.failure(error)
 
     override suspend fun execute(profile: String, operation: String, payload: JSONObject, caller: String): JSONObject {
+        val strings = SourceLocales.context(this, payload)
         val store = runtime.profiles
         if (operation == ExtensionProtocol.PROFILES) {
             val all = store.list()
@@ -22,7 +23,7 @@ class FindThatMemeExtensionService : ExtensionService() {
                 cursor[1].toIntOrNull()?.takeIf { it in 0..all.size } ?: throw ExtensionFailure("INVALID_RESPONSE")
             }
             val rows = all.drop(offset).take(100)
-            return JSONObject().put("profiles", JSONArray(rows.map { SourceWire.profile(it.publicProfile()) }))
+            return JSONObject().put("profiles", JSONArray(rows.map { SourceWire.profile(it.publicProfile(strings)) }))
                 .put("next", "$fingerprint:${offset + rows.size}".takeIf { offset + rows.size < all.size })
         }
         val row = store.get(profile)
@@ -33,7 +34,7 @@ class FindThatMemeExtensionService : ExtensionService() {
         }
         val records = FindThatMemeRecords(store)
         return when (operation) {
-            ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(records.capabilities())
+            ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(records.capabilities(FindThatMemeCategories.values(strings)))
             ExtensionProtocol.FILTERS -> JSONObject().put("values", JSONArray())
             ExtensionProtocol.SEARCH -> SourceWire.page(records.page(row, payload.getString("source"),
                 SourceWire.query(payload.getJSONObject("query")), SourceWire.nullable(payload, "cursor"), runtime.api))

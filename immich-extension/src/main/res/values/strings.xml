@@ -11,7 +11,7 @@
     <string name="immich_saved_album">Saved album</string>
     <string name="immich_credentials_description">Browsing needs asset.read, asset.view, asset.download and tag.read. Add album.read to choose an album. Uploading also needs asset.upload; a selected owned album needs albumAsset.create. Credentials stay encrypted in this extension.</string>
     <string name="immich_test">Test connection</string>
-    <string name="immich_save">@string/source_settings_save</string>
+    <string name="immich_save" translatable="false">@string/source_settings_save</string>
     <string name="immich_checking">Checking connection…</string>
     <string name="immich_connected">Connection verified. Choose a collection, then save.</string>
     <string name="immich_saved">Immich is now the picker’s media source.</string>
@@ -24,7 +24,7 @@
     <string name="immich_network_error">Could not reach Immich. Check the connection and server address.</string>
     <string name="immich_storage_error">Could not read or save this source. Check the configuration and try again.</string>
     <string name="source_name">Source name</string>
-    <string name="source_delete">@string/source_settings_remove</string>
+    <string name="source_delete" translatable="false">@string/source_settings_remove</string>
     <string name="source_removed">Source removed.</string>
     <string name="connection_status_version">%1$s (%2$s)</string>
     <string name="section_profile">Profile</string>

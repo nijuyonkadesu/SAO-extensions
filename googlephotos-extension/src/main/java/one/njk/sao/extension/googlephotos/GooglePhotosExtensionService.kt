@@ -23,6 +23,7 @@ class GooglePhotosExtensionService : ExtensionService() {
         }
     }
     private suspend fun executeRequest(profile: String, operation: String, payload: JSONObject, caller: String): JSONObject {
+        val strings = SourceLocales.context(this, payload)
         val store = runtime.profiles
         if (operation == ExtensionProtocol.PROFILES) {
             val all = store.list()
@@ -33,7 +34,7 @@ class GooglePhotosExtensionService : ExtensionService() {
                 cursor[1].toIntOrNull()?.takeIf { it in 0..all.size } ?: throw ExtensionFailure("INVALID_RESPONSE")
             }
             val rows = all.drop(offset).take(100)
-            return JSONObject().put("profiles", JSONArray(rows.map { SourceWire.profile(it.publicProfile()) }))
+            return JSONObject().put("profiles", JSONArray(rows.map { SourceWire.profile(it.publicProfile(strings)) }))
                 .put("next", "$fingerprint:${offset + rows.size}".takeIf { offset + rows.size < all.size })
         }
         val row = store.get(profile)
@@ -41,7 +42,7 @@ class GooglePhotosExtensionService : ExtensionService() {
         val records = GooglePhotosRecords(store)
         return when (operation) {
             ExtensionProtocol.DELETE_PROFILE -> { store.delete(profile, row.revision); runtime.clearSessions(); JSONObject() }
-            ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(records.capabilities(row))
+            ExtensionProtocol.CAPABILITIES -> SourceWire.capabilities(records.capabilities(row, GooglePhotosCategories.values(strings)))
             ExtensionProtocol.FILTERS -> JSONObject().put("values", JSONArray())
             ExtensionProtocol.SEARCH -> runtime.read(row) { api -> SourceWire.page(records.page(row, payload.getString("source"),
                 SourceWire.query(payload.getJSONObject("query")), SourceWire.nullable(payload, "cursor"), api)) }

@@ -25,7 +25,7 @@ class ConnectionStore(context: Context) {
     private val app = context.applicationContext
     private val file = AtomicFile(File(context.noBackupFilesDir,"connections-v1"))
     data class Connection(val id: String, val name: String, val config: ImmichConfig, val revision: String) {
-        fun publicProfile() = ExtensionProfile(id,name,revision,if (config.albumId == null) "All media" else "Selected album")
+        fun publicProfile(context: Context) = ExtensionProfile(id,name,revision,context.getString(if (config.albumId == null) R.string.profile_all_media else R.string.profile_selected_album))
     }
     suspend fun list(): List<Connection> = withContext(Dispatchers.IO) { lock.withLock { read() } }
     suspend fun get(id: String) = list().firstOrNull { it.id == id } ?: throw one.njk.sao.source.ExtensionFailure("PROFILE_MISSING")

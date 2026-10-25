@@ -1,5 +1,6 @@
 plugins { alias libs.plugins.android.application }
 android {
+    lint { disable += 'MissingTranslation' } // Android falls back to the default English strings.
     namespace 'one.njk.sao.extension.local'
     compileSdk 37
     ndkVersion '28.2.13676358'
@@ -14,6 +15,7 @@ android {
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes {
+        debug { pseudoLocalesEnabled true }
         release {
             minifyEnabled true
             shrinkResources true

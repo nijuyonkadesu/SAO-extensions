@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Labels only: backend query terms and tag IDs are deliberately not translated. -->
+    <string name="category_school_uniform">School uniform</string>
+    <string name="category_blush">Blush</string>
+    <string name="category_ponytail">Ponytail</string>
+    <string name="category_waifu">Waifu</string>
+    <string name="category_neko">Neko</string>
+    <string name="category_shinobu">Shinobu</string>
+    <string name="category_megumin">Megumin</string>
+    <string name="category_bully">Bully</string>
+    <string name="category_cuddle">Cuddle</string>
+    <string name="category_cry">Cry</string>
+    <string name="category_hug">Hug</string>
+    <string name="category_kiss">Kiss</string>
+    <string name="category_lick">Lick</string>
+    <string name="category_pat">Pat</string>
+    <string name="category_smug">Smug</string>
+    <string name="category_yeet">Yeet</string>
+    <string name="category_smile">Smile</string>
+    <string name="category_wave">Wave</string>
+    <string name="category_handhold">Handhold</string>
+    <string name="category_nom">Nom</string>
+    <string name="category_bite">Bite</string>
+    <string name="category_glomp">Glomp</string>
+    <string name="category_slap">Slap</string>
+    <string name="category_kick">Kick</string>
+    <string name="category_happy">Happy</string>
+    <string name="category_wink">Wink</string>
+    <string name="category_poke">Poke</string>
+    <string name="category_dance">Dance</string>
+    <string name="category_wince">Wince</string>
+    <string name="category_cat_smile">Cat smile</string>
+    <string name="category_howling">Howling</string>
+    <string name="category_bonk">Bonk</string>
+    <string name="category_high_five">High five</string>
+    <string name="category_kill">Kill</string>
+    <string name="category_head_bump">Head bump</string>
+    <string name="category_death">Death</string>
+    <string name="category_all">All</string>
+    <string name="tag_category_general">General</string>
+    <string name="tag_category_artist">Artist</string>
+    <string name="tag_category_copyright">Copyright</string>
+    <string name="tag_category_character">Character</string>
+    <string name="tag_category_metadata">Metadata</string>
+    <string name="tag_category_other">Other</string>
+</resources>
