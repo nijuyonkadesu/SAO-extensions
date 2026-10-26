@@ -1,9 +1,9 @@
 # Translate source APKs through Crowdin
 
-Use the **SAO Crowdin project** to translate Immich, Local Sticker, Moeview, FindThatMeme and Google Photos in your browser. Select a language, filter by the extension's label, enter translations, and click **Save**. Contributors do not need to edit XML, fork either repository, open pull requests, or build an APK. Crowdin's GitHub integration sends translated resources back for maintainer review.
+Use the [**SAO Crowdin project**](https://crowdin.com/project/sao-share-arts-by-overlay) to translate Immich, Local Sticker, Moeview, FindThatMeme and Google Photos in your browser. Select a language, filter by the extension's label, enter translations, and click **Save**. Contributors do not need to edit XML, fork either repository, open pull requests, or build an APK. Crowdin's GitHub integration sends translated resources back for maintainer review.
 
 > [!NOTE]
-> The repository configuration is prepared; the owner still needs to connect a Crowdin account and verify the public project URL. The [main contributor guide](https://github.com/nijuyonkadesu/SAO/blob/feat/dynamic-stickers/docs/translations.md) will publish the verified link. Do not create a separate translation project for the extension repository.
+> The portal is public, so viewing its dashboard requires no login. Saving translations requires a Crowdin sign-in; GitHub or Google sign-in is supported. **Request new language** is expected until target languages are configured. All extensions use this same project.
 
 English remains the fallback. Preserve placeholders such as `%1$s` and `%2$d`; product names and backend tags are read-only or remain as written. Shared form/intake wording is translated once in **Shared extension settings**. Source-specific forms, summaries, preset labels and suggestions have their own extension labels. New languages are enabled when requested; this setup does not add translations automatically.
 
