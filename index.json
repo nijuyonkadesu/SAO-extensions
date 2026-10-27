@@ -7,8 +7,8 @@
       "packageName": "one.njk.sao.extension.immich",
       "name": "Immich",
       "description": "Search photos and videos on your Immich servers.",
-      "versionCode": 8,
-      "versionName": "1.2.5",
+      "versionCode": 9,
+      "versionName": "1.2.6",
       "apiVersion": 1,
       "minSdk": 30,
       "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
@@ -16,21 +16,21 @@
       "artifacts": [
         {
           "abi": "universal",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/immich-v1.2.5/immich-sao.apk",
-          "sha256": "4cfaec47c13cebdd063774db314adf1740dcc149b243a4dae784e02c320e21b4",
-          "size": 3420744
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/immich-v1.2.6/immich-sao.apk",
+          "sha256": "4119684702242983ab81e87b773344afbaec6094f3e46fa4a7f23fd2755ff983",
+          "size": 3511848
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/immich.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/immich-v1.2.5"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/immich-v1.2.6"
     },
     {
       "id": "local",
       "packageName": "one.njk.sao.extension.local",
       "name": "Local Sticker",
       "description": "Local folders and selected media with OCR, labels and offline Context search.",
-      "versionCode": 15,
-      "versionName": "1.6.6",
+      "versionCode": 16,
+      "versionName": "1.6.7",
       "apiVersion": 1,
       "minSdk": 30,
       "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
@@ -38,33 +38,33 @@
       "artifacts": [
         {
           "abi": "armeabi-v7a",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6/local-sticker-armeabi-v7a.apk",
-          "sha256": "ec8356ec895333e64d00771ec6f7a1e9de3679c750ff4f9bc220cf051cb29ee0",
-          "size": 26651992
-        },
-        {
-          "abi": "arm64-v8a",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6/local-sticker-arm64-v8a.apk",
-          "sha256": "f287337d940a49623e8ee4c8099dd2363d5d7d74a217a08907bcb1f4750a8dde",
-          "size": 29592910
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.7/local-sticker-armeabi-v7a.apk",
+          "sha256": "0c4972dcc398f19733071e3b331ae195e783bd7bbe40c2238fde926315a16dfe",
+          "size": 26723120
         },
         {
           "abi": "x86_64",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.6/local-sticker-x86_64.apk",
-          "sha256": "f7af101cee9af008ad3d50b70ea22a992b834ad0243aeedc44f4978de6593d36",
-          "size": 32042303
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.7/local-sticker-x86_64.apk",
+          "sha256": "60d54f5ed21d2d26df43990015b577624e46cb30d1c864b3a3a67c5af3b67638",
+          "size": 32113431
+        },
+        {
+          "abi": "arm64-v8a",
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/local-v1.6.7/local-sticker-arm64-v8a.apk",
+          "sha256": "49075dd6d41b230c4c8a4bcfd78cdfff15d2e9a4272b1170f0f2b7539f5f8f29",
+          "size": 29664038
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/local.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/local-v1.6.6"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/local-v1.6.7"
     },
     {
       "id": "moeview",
       "packageName": "one.njk.sao.extension.moeview",
       "name": "Moeview",
       "description": "Browse supported image boards with tag search and suggestions.",
-      "versionCode": 10,
-      "versionName": "1.1.7",
+      "versionCode": 11,
+      "versionName": "1.1.8",
       "apiVersion": 1,
       "minSdk": 30,
       "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
@@ -72,21 +72,21 @@
       "artifacts": [
         {
           "abi": "universal",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/moeview-v1.1.7/moeview-sao.apk",
-          "sha256": "a0f2bd64a1991ff2ee7d7035da1cc8bc4ced0734bc654bba6ea95ea9cd4b8d34",
-          "size": 2449706
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/moeview-v1.1.8/moeview-sao.apk",
+          "sha256": "78cb976df7adac3f7c9c6ba9d3026c325f087005deaee7fdbc9c679ccc27df74",
+          "size": 2544876
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/moeview.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/moeview-v1.1.7"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/moeview-v1.1.8"
     },
     {
       "id": "findthatmeme",
       "packageName": "one.njk.sao.extension.findthatmeme",
       "name": "FindThatMeme",
       "description": "Find public memes by keyword or caption, including GIFs and videos.",
-      "versionCode": 3,
-      "versionName": "1.0.2",
+      "versionCode": 4,
+      "versionName": "1.0.3",
       "apiVersion": 1,
       "minSdk": 30,
       "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
@@ -94,21 +94,21 @@
       "artifacts": [
         {
           "abi": "universal",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/findthatmeme-v1.0.2/findthatmeme-sao.apk",
-          "sha256": "78e07037658e35b7fdf5ce9e87ea892bde8976cd2633f4ec5ac982fcc445b24a",
-          "size": 2306289
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/findthatmeme-v1.0.3/findthatmeme-sao.apk",
+          "sha256": "4dce2e6b87ee24a150c67ab6fc0298681772dd2fa1bfe7605d88639fdf2e65a9",
+          "size": 2360219
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/findthatmeme.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/findthatmeme-v1.0.2"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/findthatmeme-v1.0.3"
     },
     {
       "id": "googlephotos",
       "packageName": "one.njk.sao.extension.googlephotos",
       "name": "Google Photos (experimental)",
       "description": "Google Photos with Vector-assisted connection, automatic session renewal, Context and Text matches.",
-      "versionCode": 4,
-      "versionName": "0.1.3",
+      "versionCode": 5,
+      "versionName": "0.1.4",
       "apiVersion": 1,
       "minSdk": 30,
       "signerSha256": "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441",
@@ -116,13 +116,13 @@
       "artifacts": [
         {
           "abi": "universal",
-          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/googlephotos-v0.1.3/googlephotos-sao.apk",
-          "sha256": "7569e2d2c68ece6ece0bc0cadc46955b204bb1ef3ced263289d79bb091588068",
-          "size": 2368068
+          "url": "https://github.com/nijuyonkadesu/SAO-extensions/releases/download/googlephotos-v0.1.4/googlephotos-sao.apk",
+          "sha256": "932379abac9e09221a299b0651c2038642ac0116c5f11609747e03039ef7e316",
+          "size": 2459198
         }
       ],
       "iconUrl": "https://raw.githubusercontent.com/nijuyonkadesu/SAO-extensions/repo/icons/googlephotos.svg",
-      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/googlephotos-v0.1.3"
+      "releaseUrl": "https://github.com/nijuyonkadesu/SAO-extensions/releases/tag/googlephotos-v0.1.4"
     }
   ]
 }
