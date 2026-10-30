@@ -86,6 +86,32 @@ class ImmichPagingDeviceTest {
         }
     }
 
+    @Test fun imageAnimationDurationSelectsOriginalPreviewWithoutExtraMediaRequests()=runBlocking {
+        val formats=listOf("image/webp","image/webp","image/webp","image/webp","image/png","image/gif","video/webm")
+        val durations=listOf(1200,0,null,null,800,null,null)
+        val rows=formats.mapIndexed { index,mime -> asset(index,false)
+            .put("type",if(mime.startsWith("video/")) "VIDEO" else "IMAGE")
+            .put("originalMimeType",mime).put("isEdited",true)
+            .apply { if(index!=3) put("duration",durations[index] ?: JSONObject.NULL) }
+        }
+        respond={ path,_ -> assertEquals("search/metadata",path); result(rows) }
+        val items=adapter().use { it.page(MediaQuery(mode=SearchMode.FILENAME),null).items }
+        assertEquals(listOf(true,false,false,false,true,true,true),items.map { it.animated })
+        assertEquals(formats,items.map { it.mimeType })
+        assertFalse(items[0].isVideo)
+        for(index in listOf(0,4,5)) {
+            assertEquals("original",items[index].remote!!.cacheKeys["preview"])
+            assertEquals("original",items[index].remote!!.cacheKeys["video"])
+            assertFalse(items[index].remote!!.edited)
+        }
+        for(index in listOf(1,2,3)) {
+            assertEquals("preview",items[index].remote!!.cacheKeys["preview"])
+            assertTrue(items[index].remote!!.edited)
+        }
+        assertEquals("encoded-playback-v1",items[6].remote!!.cacheKeys["video"])
+        assertEquals("Only the search call is needed; no per-file probes/downloads",1,calls.size)
+    }
+
     @Test fun contextBudgetRefetchesTheRankedPageAndRetainsAnyTagSemantics()=runBlocking {
         val rows=(0 until 150).associateWith { asset(it) }
         respond={ path,body -> when(path) {

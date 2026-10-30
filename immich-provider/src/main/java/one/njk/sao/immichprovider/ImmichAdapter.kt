@@ -77,7 +77,10 @@ class ImmichAdapter(private val config: ImmichConfig, private val sourceId: Stri
     }
     fun mapAsset(asset: ImmichAsset): MediaItem {
         val mime = mediaMime(asset)
-        val motion = asset.type == "VIDEO" || mime == "image/gif" || mime.startsWith("video/")
+        // Immich reports animated WebP/PNG as IMAGE with a duration in milliseconds.
+        // Use that metadata rather than marking all WebPs animated or fetching each file.
+        val motion = asset.type == "VIDEO" || mime == "image/gif" || mime.startsWith("video/") ||
+            mime.startsWith("image/") && (asset.duration ?: 0) > 0
         return MediaItem("immich_${digest(sourceId).take(16)}_${digest(asset.id + asset.updatedAt + asset.isEdited).take(32)}",
             ImmichResponses.label(asset.exifInfo?.description?.takeIf { it.isNotBlank() } ?: asset.originalFileName,160), "", mime,
             asset.tags.asSequence().take(20).map { ImmichResponses.label(it.value,80) }.toList(),
