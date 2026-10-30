@@ -10,8 +10,8 @@ android {
         applicationId 'one.njk.sao.extension.local'
         minSdk 30
         targetSdk 36
-        versionCode 16
-        versionName '1.6.7'
+        versionCode 17
+        versionName '1.6.8'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes {

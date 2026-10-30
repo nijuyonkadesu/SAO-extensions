@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare signed development APKs and one catalog; optionally publish with gh. No CI required."""
+"""Prepare release-signed APKs and their catalog; optionally publish with gh. No CI required."""
 import argparse
 import hashlib
 import html
@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "nijuyonkadesu/SAO-extensions"
+PUBLISHER_SHA256 = "fd793dd1514b2a5c1d561f27df03ed76d06a94f872627eb7ec4e522871cf4441"
 SOURCES = [
     ("immich", "Immich", "Search photos and videos on your Immich servers.", "immich-extension", "immich-sao"),
     ("local", "Local Sticker", "Local folders and selected media with OCR, labels and offline Context search.", "local-extension", "local-sticker"),
@@ -69,6 +70,12 @@ def vector_svg(vector):
 
 
 def prepare():
+    keystore = Path(os.environ["SAO_RELEASE_KEYSTORE"]).expanduser().resolve(strict=True)
+    alias = os.environ["SAO_RELEASE_ALIAS"]
+    if not os.environ.get("SAO_RELEASE_STORE_PASSWORD"):
+        raise RuntimeError("Set SAO_RELEASE_STORE_PASSWORD before signing")
+    signing_env = os.environ.copy()
+    signing_env.setdefault("SAO_RELEASE_KEY_PASSWORD", signing_env["SAO_RELEASE_STORE_PASSWORD"])
     # Gradle validates inputs for every published module; existing output files alone are not provenance.
     commit = run("git", "rev-parse", "HEAD")
     clean = not run("git", "status", "--porcelain")
@@ -94,26 +101,29 @@ def prepare():
             version, code = element["versionName"], element["versionCode"]
             abi = next((f["value"] for f in element["filters"] if f["filterType"] == "ABI"), "universal")
             target = output / f"{stem}-{abi}.apk" if abi != "universal" else output / f"{stem}.apk"
-            subprocess.run([str(tools / "apksigner"), "sign", "--ks", str(Path.home() / ".android/debug.keystore"),
-                            "--ks-key-alias", "androiddebugkey", "--ks-pass", "pass:android", "--key-pass", "pass:android",
-                            "--out", str(target), str(apk_dir / element["outputFile"])], check=True)
+            subprocess.run([str(tools / "apksigner"), "sign", "--ks", str(keystore),
+                            "--ks-key-alias", alias, "--ks-pass", "env:SAO_RELEASE_STORE_PASSWORD",
+                            "--key-pass", "env:SAO_RELEASE_KEY_PASSWORD",
+                            "--out", str(target), str(apk_dir / element["outputFile"])], env=signing_env, check=True)
             certificate = re.search(r"certificate SHA-256 digest: ([0-9a-f]{64})", run(str(tools / "apksigner"), "verify", "--print-certs", str(target))).group(1)
+            if certificate != PUBLISHER_SHA256:
+                raise RuntimeError("Signing certificate differs from the official catalog publisher")
             assert fingerprint is None or fingerprint == certificate
             fingerprint = certificate
             badging = run(str(tools / "aapt2"), "dump", "badging", str(target))
             minimum = int(re.search(r"(?:minSdkVersion|sdkVersion):\s*'(\d+)'", badging).group(1))
             manifest = run(str(tools / "aapt2"), "dump", "xmltree", "--file", "AndroidManifest.xml", str(target))
             assert 'one.njk.sao.source.EXTENSION' in manifest and 'one.njk.sao.source.API_VERSION' in manifest
-            tag = f"{ident}-v{version}-debug"
+            tag = f"{ident}-v{version}"
             artifacts.append({"abi": abi, "url": f"https://github.com/{REPOSITORY}/releases/download/{tag}/{target.name}",
                               "sha256": hashlib.sha256(target.read_bytes()).hexdigest(), "size": target.stat().st_size})
         icon = ET.parse(ROOT / module / "src/main/res/drawable/ic_extension.xml").getroot()
         (catalog_dir / "icons" / f"{ident}.svg").write_text(vector_svg(icon))
         entries.append({"id": ident, "packageName": package, "name": name, "description": description,
                         "versionCode": code, "versionName": version, "apiVersion": 1, "minSdk": minimum,
-                        "signerSha256": fingerprint, "channel": "development", "artifacts": artifacts,
+                        "signerSha256": fingerprint, "channel": "stable", "artifacts": artifacts,
                         "iconUrl": f"https://raw.githubusercontent.com/{REPOSITORY}/repo/icons/{ident}.svg",
-                        "releaseUrl": f"https://github.com/{REPOSITORY}/releases/tag/{ident}-v{version}-debug"})
+                        "releaseUrl": f"https://github.com/{REPOSITORY}/releases/tag/{ident}-v{version}"})
     catalog = {"schemaVersion": 1, "name": "SAO extensions", "extensions": entries}
     (catalog_dir / "index.json").write_text(json.dumps(catalog, indent=2) + "\n")
     (output / "build-provenance.json").write_text(json.dumps({
@@ -123,22 +133,24 @@ def prepare():
     }, indent=2) + "\n")
     (catalog_dir / "repo.json").write_text(json.dumps({"name": "SAO extensions", "schemaVersion": 1,
         "index": f"https://raw.githubusercontent.com/{REPOSITORY}/repo/index.json", "website": f"https://github.com/{REPOSITORY}"}, indent=2) + "\n")
-    cards = ''.join(f'<li><img src="icons/{e["id"]}.svg" width="72" height="72" alt=""><h2>{html.escape(e["name"])}</h2><p>{html.escape(e["description"])}</p><p>Version {html.escape(e["versionName"])} · Development signing</p>' +
+    cards = ''.join(f'<li><img src="icons/{e["id"]}.svg" width="72" height="72" alt=""><h2>{html.escape(e["name"])}</h2><p>{html.escape(e["description"])}</p><p>Version {html.escape(e["versionName"])} · Release signing</p>' +
                     ' '.join(f'<a href="{html.escape(a["url"], quote=True)}">Download {a["abi"]}</a>' for a in e["artifacts"]) + '</li>' for e in entries)
-    (catalog_dir / "index.html").write_text('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAO extensions</title><style>body{font:1rem system-ui;max-width:52rem;margin:3rem auto;padding:0 1rem}li{margin:2rem 0}a{margin-right:1rem}</style><h1>SAO extensions</h1><p>Independent media sources for SAO. These builds use the existing development signing certificate.</p><ul>' + cards + '</ul><p><a href="https://github.com/nijuyonkadesu/SAO-extensions">Source and build instructions</a></p></html>\n')
-    (catalog_dir / "README.md").write_text('# SAO extension catalog\n\nGenerated from tested, manually published APKs. Install/update supported sources inside SAO, or use the [download page](index.html). Development builds retain their existing package IDs and debug signing certificate.\n\nImplementation and publishing instructions: [main branch](https://github.com/nijuyonkadesu/SAO-extensions/tree/main).\n')
+    (catalog_dir / "index.html").write_text('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAO extensions</title><style>body{font:1rem system-ui;max-width:52rem;margin:3rem auto;padding:0 1rem}li{margin:2rem 0}a{margin-right:1rem}</style><h1>SAO extensions</h1><p>Independent, release-signed media sources for SAO.</p><ul>' + cards + '</ul><p><a href="https://github.com/nijuyonkadesu/SAO-extensions">Source and build instructions</a></p></html>\n')
+    (catalog_dir / "README.md").write_text('# SAO extension catalog\n\nGenerated from tested, manually published, release-signed APKs. Install/update supported sources inside SAO, or use the [download page](index.html). Package IDs and the official publisher certificate are preserved for in-place updates.\n\nImplementation and publishing instructions: [main branch](https://github.com/nijuyonkadesu/SAO-extensions/tree/main).\n')
     shutil.copyfile(ROOT / "LICENSE", catalog_dir / "icons/LICENSE")
     (catalog_dir / "icons/NOTICE.md").write_text("SAO extension artwork is distributed under AGPL-3.0. Local Sticker, Moeview and FindThatMeme use original SAO artwork. Immich adapts the upstream Immich flower with a companion insert badge. Source, modifications and attribution: https://github.com/nijuyonkadesu/SAO-extensions/tree/main/third_party/immich\n")
     return catalog
 
 
-def publish(catalog):
+def publish(catalog, notes_dir=None):
     commit = run("git", "rev-parse", "HEAD")
     if run("git", "status", "--porcelain"):
         raise RuntimeError("Commit the tested source before publishing")
     provenance = json.loads((ROOT / "build/distribution/build-provenance.json").read_text())
     if provenance["commit"] != commit or not provenance["clean"]:
         raise RuntimeError("Rebuild release inputs from the clean commit being published")
+    if notes_dir and any(not (notes_dir / f'{entry["id"]}.md').is_file() for entry in catalog["extensions"]):
+        raise RuntimeError("Provide release notes for every source before publishing")
     for entry in catalog["extensions"]:
         for artifact in entry["artifacts"]:
             name = artifact["url"].rsplit('/', 1)[-1]
@@ -156,9 +168,11 @@ def publish(catalog):
         if "404" not in lookup.stderr:
             raise RuntimeError(lookup.stderr)
         notes = ROOT / "build/distribution" / f'{entry["id"]}-notes.md'
-        notes.write_text(f'{entry["description"]}\n\nDistinct lightweight vector artwork, adaptive Android icons and themed monochrome variants. Development-signed optimized APK, built independently against Source SDK 1.0.0. Package identity and existing profiles are preserved. Manual build; CI is deferred.\n')
-        subprocess.run(["gh", "release", "create", tag, "--repo", REPOSITORY, "--target", commit, "--prerelease",
-                        "--title", f'{entry["name"]} {entry["versionName"]} (development)', "--notes-file", str(notes),
+        source_notes = notes_dir / f'{entry["id"]}.md' if notes_dir else None
+        notes.write_text(source_notes.read_text() if source_notes else
+            f'{entry["description"]}\n\nRelease-signed optimized APK, built from [{commit[:7]}](https://github.com/{REPOSITORY}/commit/{commit}). Package identity and existing profiles are preserved. Manual build; CI is deferred.\n')
+        subprocess.run(["gh", "release", "create", tag, "--repo", REPOSITORY, "--target", commit,
+                        "--title", f'{entry["name"]} {entry["versionName"]}', "--notes-file", str(notes),
                         *[str(ROOT / "build/distribution" / a["url"].rsplit('/', 1)[-1]) for a in entry["artifacts"]]], check=True)
     print("APKs published. Publish build/distribution/catalog as the repo branch after verifying the URLs.")
 
@@ -166,9 +180,10 @@ def publish(catalog):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--publish", action="store_true", help="Also publish immutable per-extension releases through gh")
+    parser.add_argument("--notes-dir", type=Path, help="Release notes directory containing <extension-id>.md for each source")
     args = parser.parse_args()
     catalog = prepare()
     if args.publish:
-        publish(catalog)
+        publish(catalog, args.notes_dir)
     else:
         print("Prepared APKs and catalog under build/distribution. No uploads performed.")

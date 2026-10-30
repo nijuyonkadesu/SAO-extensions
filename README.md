@@ -33,9 +33,9 @@ Extracted from SAO at `e1d9bf31f2175ffe803396a03951e54156b271d6`, preserving 46 
 
 The shared `source-api` and `source-settings` SDK remains maintained in SAO and is consumed as versioned libraries here. Credentials, installed package IDs and APK signing identities are preserved during the move.
 
-## Manual development releases
+## Manual releases
 
-Build optimized release APKs first, then prepare the signed downloads and catalog:
+Set `SAO_RELEASE_KEYSTORE` to the release keystore path, `SAO_RELEASE_ALIAS` to its alias, and `SAO_RELEASE_STORE_PASSWORD` in your environment. `SAO_RELEASE_KEY_PASSWORD` defaults to the store password. Never commit credentials or the keystore. Then prepare optimized, release-signed downloads and the catalog:
 
 ```sh
 ./gradlew :immich-extension:assembleRelease :local-extension:assembleRelease :moeview-extension:assembleRelease :findthatmeme-extension:assembleRelease
@@ -43,18 +43,18 @@ Build optimized release APKs first, then prepare the signed downloads and catalo
 python3 tools/release.py
 ```
 
-This uses the existing Android development keystore at `~/.android/debug.keystore`. Its private key is never committed or uploaded. Output is in `build/distribution`, with Local Sticker split by ABI. Retain the original certificate for in-place updates; a different machine's default debug certificate is not interchangeable.
+Output is in `build/distribution`, with Local Sticker split by ABI. The tool verifies the official publisher certificate before preparing the stable catalog. Retain that certificate for in-place updates; locally debug-signed installations cannot be replaced by a differently signed release.
 
-After tests and a source commit pushed to main, `python3 tools/release.py --publish` uploads immutable per-extension prereleases with gh. A published version with different bytes is refused; increment its version instead. Then copy `build/distribution/catalog/` into a checkout of the `repo` branch and commit/push it. APKs are published before catalog pointers. No workflow/CI is required.
+After tests and a source commit pushed to main, `python3 tools/release.py --publish` uploads immutable per-extension releases with gh. Use `--notes-dir /path/to/notes` to supply `<extension-id>.md` notes for every source. A published version with different bytes is refused; increment its version instead. Then copy `build/distribution/catalog/` into a checkout of the `repo` branch and commit/push it. APKs are published before catalog pointers. No workflow/CI is required.
 
 The SDK and reference-test dependencies use Gradle's built-in Ivy descriptors to resolve public Release assets, including transitive dependencies. No custom downloader, GitHub credentials or sibling checkout is required.
 
 Migration validation: all four standalone debug and optimized release builds pass; 57 extension JVM tests and 38 Android checks pass, including native local indexing/vector lifetime, original files, idle behavior and the host's FindThatMeme settings/search flow. Lint has zero errors. Instrumentation uses synthetic media and local mock servers.
 
 
-### Building the shared settings redesign locally
+### Shared SDK
 
-Source API and the shared Views settings library use SDK 1.2.0. Until its SDK assets are published, stage both libraries from an adjacent SAO checkout containing that SDK (`feat/dynamic-stickers` while PR #24 is unmerged), then build this repository normally:
+Source API and the shared Views settings library use SDK 1.2.0, resolved from the public `source-sdk-1.2.0` release. For SDK development, stage both libraries from an adjacent SAO checkout, then build this repository normally:
 
 ```sh
 cd ../SAO
