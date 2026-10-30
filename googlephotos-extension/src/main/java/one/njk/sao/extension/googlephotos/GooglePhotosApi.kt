@@ -123,7 +123,7 @@ internal class GooglePhotosApi(
         }
     }
 
-    suspend fun media(url: String, trace: (String) -> Unit = {}): Opened {
+    suspend fun media(url: String, offset: Long? = null, validator: String? = null, trace: (String) -> Unit = {}): Opened {
         var current = url.toHttpUrl()
         repeat(8) { hop ->
             val media = GooglePhotosProtocol.allowedMedia(current.toString())
@@ -132,7 +132,10 @@ internal class GooglePhotosApi(
             trace("Media target: host=${current.host}, allowed=${media || accounts}")
             if (!media && !accounts) throw ExtensionFailure("INVALID_RESPONSE")
             val firstParty = current.host in setOf("lh3.google.com", "photos.fife.usercontent.google.com", "accounts.google.com")
-            val request = Request.Builder().url(current).header("Referer", "https://photos.google.com$basePath")
+            val request = Request.Builder().url(current).header("Referer", "https://photos.google.com$basePath").apply {
+                offset?.let { require(it >= 0); header("Range", "bytes=$it-"); header("Accept-Encoding", "identity") }
+                validator?.let { header("If-Range", it) }
+            }
             if (firstParty) request.header("Cookie", jar.loadForRequest(current).joinToString("; ") { "${it.name}=${it.value}" })
             val opened = open(request.build())
             try {

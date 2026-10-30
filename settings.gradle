@@ -26,7 +26,7 @@ dependencyResolutionManagement {
         }
         ivy {
             name = 'SaoSourceSdk'
-            url = 'https://github.com/nijuyonkadesu/SAO/releases/download/source-sdk-1.1.0'
+            url = 'https://github.com/nijuyonkadesu/SAO/releases/download/source-sdk-1.2.0'
             patternLayout {
                 artifact '[artifact]-[revision](-[classifier]).[ext]'
                 ivy '[module]-[revision].ivy.xml'

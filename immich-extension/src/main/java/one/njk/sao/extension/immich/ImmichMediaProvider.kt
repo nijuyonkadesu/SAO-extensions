@@ -45,6 +45,33 @@ class ImmichMediaProvider : ContentProvider() {
         }
     }
 
+    override fun openTypedAssetFile(uri: Uri,mimeTypeFilter: String,opts: android.os.Bundle?,signal: android.os.CancellationSignal?): android.content.res.AssetFileDescriptor? {
+        if(opts?.getBoolean(one.njk.sao.source.MediaStreamOptions.STREAMING)!=true) return super.openTypedAssetFile(uri,mimeTypeFilter,opts,signal)
+        val app=requireNotNull(context)
+        check(one.njk.sao.source.SourceAccess.caller(app,Binder.getCallingUid())!=null)
+        val parts=uri.pathSegments; require(parts.size==4)
+        return try { streams.openSeekable(app,signal,opts.getLong(one.njk.sao.source.MediaStreamOptions.POSITION),{ error -> if(error is ExtensionFailure) error else ExtensionFailure("NETWORK") }) {
+            val connection=ConnectionStore(app).get(parts[0])
+            if(connection.revision!=parts[1]) throw ExtensionFailure("PROFILE_CHANGED")
+            ImmichAdapter(connection.config,"stream").use { adapter -> serve { offset,validator ->
+                val call=adapter.mediaCall(parts[3],parts[2],uri.getQueryParameter("edited")=="true",offset,validator)
+                val response=kotlinx.coroutines.suspendCancellableCoroutine<okhttp3.Response> { continuation ->
+                    continuation.invokeOnCancellation { call.cancel() }
+                    call.enqueue(object : okhttp3.Callback {
+                        override fun onFailure(call: okhttp3.Call,error: java.io.IOException) { if(!continuation.isCancelled) continuation.resumeWith(Result.failure(error)) }
+                        override fun onResponse(call: okhttp3.Call,response: okhttp3.Response) { continuation.resume(response) { _,value,_ -> value.close() } }
+                    })
+                }
+                val body=requireNotNull(response.body)
+                one.njk.sao.extension.runtime.SeekableMedia.Response.http(body.byteStream(),response.code,body.contentLength(),
+                    response.header("Content-Range"),offset,response.header("ETag")?.takeUnless { it.startsWith("W/") } ?: response.header("Last-Modified"),call::cancel,response::close)
+            } }
+        } } catch(error: ExtensionFailure) {
+            if(error.code=="STREAM_UNSEEKABLE") super.openTypedAssetFile(uri,mimeTypeFilter,opts,signal)
+            else throw java.io.FileNotFoundException(error.code)
+        }
+    }
+
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, args: Array<out String>?, order: String?): Cursor? = null
     override fun insert(uri: Uri, values: ContentValues?): Uri? = throw UnsupportedOperationException()
     override fun delete(uri: Uri, selection: String?, args: Array<out String>?): Int = throw UnsupportedOperationException()

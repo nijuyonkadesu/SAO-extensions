@@ -46,6 +46,21 @@ class LocalMediaProvider : ContentProvider() {
         }
     }
 
+    override fun openTypedAssetFile(uri: Uri,mimeTypeFilter: String,opts: android.os.Bundle?,signal: CancellationSignal?): android.content.res.AssetFileDescriptor? {
+        if(opts?.getBoolean(one.njk.sao.source.MediaStreamOptions.STREAMING)!=true || uri.lastPathSegment!="original")
+            return super.openTypedAssetFile(uri,mimeTypeFilter,opts,signal)
+        val app=requireNotNull(context)
+        require(one.njk.sao.source.SourceAccess.caller(app,Binder.getCallingUid())!=null)
+        val parts=uri.pathSegments; require(parts.size==5)
+        return runBlocking(Dispatchers.IO) {
+            val store=LocalStore.get(app); val library=store.library(parts[0])
+            if(library.revision!=parts[1]) throw java.io.FileNotFoundException("PROFILE_CHANGED")
+            val asset=store.asset(parts[2].toLong(),library.id)
+            if(asset.signature!=parts[3]) throw java.io.FileNotFoundException("MEDIA_CHANGED")
+            app.contentResolver.openAssetFileDescriptor(Uri.parse(asset.uri),"r",signal)
+        }
+    }
+
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, args: Array<out String>?, order: String?): Cursor?=null
     override fun insert(uri: Uri, values: ContentValues?): Uri?=throw UnsupportedOperationException()
     override fun delete(uri: Uri, selection: String?, args: Array<out String>?): Int=throw UnsupportedOperationException()

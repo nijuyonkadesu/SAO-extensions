@@ -87,7 +87,7 @@ class BooruHttp internal constructor(
         val request=Request.Builder().url(url).header("User-Agent",config.userAgent)
             .header("Accept","image/*,video/*,*/*").apply {
                 headers.forEach { (k,v) -> header(k,v) }; config.extraHeaders.forEach { (k,v) -> header(k,v) }
-                range?.let { header("Range",it.headerValue()) }
+                range?.let { header("Range",it.headerValue()); header("Accept-Encoding","identity") }
             }.build()
         val call=okHttpClient.newCall(request)
         return OpenedMedia(call.awaitResponse()) { call.cancel() }

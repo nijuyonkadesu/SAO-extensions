@@ -76,7 +76,7 @@ class ImmichClient(val connection: ImmichConnection, retryReadConnections: Boole
         .build().create(ImmichApi::class.java)
 
     /** Raw authenticated stream, with a cancellable Call retained until its body is closed. */
-    fun mediaCall(id: String, kind: String, edited: Boolean): Call {
+    fun mediaCall(id: String, kind: String, edited: Boolean, offset: Long? = null, validator: String? = null): Call {
         val path = when(kind) {
             "person" -> listOf("people",id,"thumbnail")
             "preview" -> listOf("assets",id,"thumbnail")
@@ -89,7 +89,10 @@ class ImmichClient(val connection: ImmichConnection, retryReadConnections: Boole
             if(kind == "preview" || kind == "original") addQueryParameter("edited",edited.toString())
             if(kind == "preview") addQueryParameter("size","preview")
         }.build()
-        return http.newCall(Request.Builder().url(url).build())
+        return http.newCall(Request.Builder().url(url).apply {
+            offset?.let { require(it >= 0); header("Range", "bytes=$it-"); header("Accept-Encoding", "identity") }
+            validator?.let { header("If-Range", it) }
+        }.build())
     }
 
     override fun close() {

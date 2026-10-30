@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
+import android.content.res.AssetFileDescriptor
+import android.os.Binder
 import android.system.Os
 import android.system.OsConstants
 import kotlinx.coroutines.*
@@ -63,6 +65,25 @@ class MediaStreams(private val scope: CoroutineScope) {
         signal?.setOnCancelListener { job.cancel() }
         job.start()
         return pair[0]
+    }
+
+    fun openSeekable(context: Context, signal: CancellationSignal?, position: Long,
+        failure: (Exception) -> ExtensionFailure, produce: suspend SeekableMedia.() -> Unit): AssetFileDescriptor {
+        require(position >= 0)
+        val ready = CompletableDeferred<AssetFileDescriptor>()
+        val caller = Binder.getCallingUid()
+        lateinit var job: Job
+        val control = object : one.njk.sao.source.IMediaReadControl.Stub() {
+            override fun cancel() { if (Binder.getCallingUid() == caller) job.cancel() }
+        }
+        job = scope.launch(start = CoroutineStart.LAZY) {
+            try { active.withPermit { SeekableMedia(context, ready, position, control).produce() } }
+            catch (error: Exception) { ready.completeExceptionally(failure(error)) }
+        }
+        signal?.setOnCancelListener { job.cancel() }
+        job.invokeOnCompletion { error -> if (!ready.isCompleted) ready.completeExceptionally(error ?: ExtensionFailure("MEDIA_UNAVAILABLE")) }
+        job.start()
+        return runBlocking { ready.await() }
     }
 
     class Writer internal constructor(val output: OutputStream) {

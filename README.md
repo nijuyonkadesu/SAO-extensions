@@ -54,7 +54,7 @@ Migration validation: all four standalone debug and optimized release builds pas
 
 ### Building the shared settings redesign locally
 
-Source API and the shared Views settings library use SDK 1.1.0. Until its SDK assets are published, stage both libraries from the adjacent SAO checkout, then build this repository normally:
+Source API and the shared Views settings library use SDK 1.2.0. Until its SDK assets are published, stage both libraries from an adjacent SAO checkout containing that SDK (`feat/dynamic-stickers` while PR #24 is unmerged), then build this repository normally:
 
 ```sh
 cd ../SAO

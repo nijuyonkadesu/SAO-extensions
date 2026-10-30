@@ -44,9 +44,12 @@ internal class FindThatMemeApi(internal val http: OkHttpClient = client()) {
         }
     }
 
-    suspend fun media(url: String): Opened {
+    suspend fun media(url: String, offset: Long? = null, validator: String? = null): Opened {
         if (!allowedMedia(url)) throw ExtensionFailure("INVALID_RESPONSE")
-        return open(Request.Builder().url(url).build())
+        return open(Request.Builder().url(url).apply {
+            offset?.let { require(it >= 0); header("Range", "bytes=$it-"); header("Accept-Encoding", "identity") }
+            validator?.let { header("If-Range", it) }
+        }.build())
     }
 
     private suspend fun open(request: Request): Opened {

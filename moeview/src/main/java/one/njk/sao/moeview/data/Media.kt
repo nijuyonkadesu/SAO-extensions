@@ -129,6 +129,9 @@ class BooruMediaStream internal constructor(
     val statusCode: Int
         get() = response.code
 
+    val contentRange: String? get() = response.header("Content-Range")
+    val validator: String? get() = response.header("ETag")?.takeUnless { it.startsWith("W/") } ?: response.header("Last-Modified")
+
     val contentType: String?
         get() = response.header("Content-Type")
 

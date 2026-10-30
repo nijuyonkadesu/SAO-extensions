@@ -206,13 +206,14 @@ class BooruApi internal constructor(
         post: Post,
         kind: MediaKind = MediaKind.FULL,
         range: ByteRange? = null,
+        validator: String? = null,
     ): BooruMediaStream {
         val candidates = mediaCandidates(board, post, kind)
         var lastError: Throwable = IOException("no media URL for post ${post.id}")
 
         for (candidate in candidates) {
             try {
-                val opened = http.openStream(board, candidate.url, candidate.headers, range)
+                val opened = http.openStream(board, candidate.url, candidate.headers + (validator?.let { mapOf("If-Range" to it) } ?: emptyMap()), range)
                 val response = opened.response
                 val contentType = response.header("Content-Type")
                 if (response.isSuccessful && isMediaContentType(contentType)) {

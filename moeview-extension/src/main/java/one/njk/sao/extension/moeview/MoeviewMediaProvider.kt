@@ -39,6 +39,27 @@ class MoeviewMediaProvider : ContentProvider() {
         }
     }
 
+    override fun openTypedAssetFile(uri: Uri,mimeTypeFilter: String,opts: android.os.Bundle?,signal: android.os.CancellationSignal?): android.content.res.AssetFileDescriptor? {
+        if(opts?.getBoolean(one.njk.sao.source.MediaStreamOptions.STREAMING)!=true) return super.openTypedAssetFile(uri,mimeTypeFilter,opts,signal)
+        val app=requireNotNull(context)
+        check(one.njk.sao.source.SourceAccess.caller(app,Binder.getCallingUid())!=null)
+        val parts=uri.pathSegments; require(parts.size==4)
+        return try { streams.openSeekable(app,signal,opts.getLong(one.njk.sao.source.MediaStreamOptions.POSITION),MoeviewRuntime::failure) {
+            val runtime=MoeviewRuntime.get(app); val profile=runtime.profiles.get(parts[0])
+            if(profile.revision!=parts[1]) throw ExtensionFailure("PROFILE_CHANGED")
+            val records=MoeviewRecords(runtime.profiles); val ref=records.reference(profile,parts[3])
+            val variant=records.variant(ref,parts[2]); val post=records.post(profile,parts[3])
+            runtime.use(profile) { api -> serve { offset,validator ->
+                val response=api.openMedia(profile.config.board,post,variant,one.njk.sao.moeview.data.ByteRange(offset),validator)
+                one.njk.sao.extension.runtime.SeekableMedia.Response.http(response.byteStream(),response.statusCode,response.contentLength,
+                    response.contentRange,offset,response.validator,response::cancel,response::close)
+            } }
+        } } catch(error: ExtensionFailure) {
+            if(error.code=="STREAM_UNSEEKABLE") super.openTypedAssetFile(uri,mimeTypeFilter,opts,signal)
+            else throw java.io.FileNotFoundException(error.code)
+        }
+    }
+
     override fun query(uri: Uri,projection: Array<out String>?,selection: String?,args: Array<out String>?,order: String?): Cursor?=null
     override fun insert(uri: Uri,values: ContentValues?): Uri?=throw UnsupportedOperationException()
     override fun delete(uri: Uri,selection: String?,args: Array<out String>?): Int=throw UnsupportedOperationException()

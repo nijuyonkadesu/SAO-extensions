@@ -40,6 +40,28 @@ class FindThatMemeMediaProvider : ContentProvider() {
         }
     }
 
+    override fun openTypedAssetFile(uri: Uri,mimeTypeFilter: String,opts: android.os.Bundle?,signal: android.os.CancellationSignal?): android.content.res.AssetFileDescriptor? {
+        if(opts?.getBoolean(one.njk.sao.source.MediaStreamOptions.STREAMING)!=true) return super.openTypedAssetFile(uri,mimeTypeFilter,opts,signal)
+        val app=requireNotNull(context)
+        check(one.njk.sao.source.SourceAccess.caller(app,Binder.getCallingUid())!=null)
+        val parts=uri.pathSegments; require(parts.size==4)
+        return try { streams.openSeekable(app,signal,opts.getLong(one.njk.sao.source.MediaStreamOptions.POSITION),FindThatMemeRuntime::failure) {
+            val runtime=FindThatMemeRuntime.get(app); val row=runtime.profiles.get(parts[0])
+            if(row.revision!=parts[1]) throw ExtensionFailure("PROFILE_CHANGED")
+            val records=FindThatMemeRecords(runtime.profiles); val ref=records.reference(row,parts[3])
+            val (url,_)=records.variant(ref,parts[2])
+            serve { offset,validator ->
+                val opened=runtime.api.media(url,offset,validator)
+                val response=opened.response; val body=requireNotNull(response.body)
+                one.njk.sao.extension.runtime.SeekableMedia.Response.http(body.byteStream(),response.code,body.contentLength(),
+                    response.header("Content-Range"),offset,response.header("ETag")?.takeUnless { it.startsWith("W/") } ?: response.header("Last-Modified"),opened::cancel,opened::close)
+            }
+        } } catch(error: ExtensionFailure) {
+            if(error.code=="STREAM_UNSEEKABLE") super.openTypedAssetFile(uri,mimeTypeFilter,opts,signal)
+            else throw java.io.FileNotFoundException(error.code)
+        }
+    }
+
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, args: Array<out String>?, order: String?): Cursor? = null
     override fun insert(uri: Uri, values: ContentValues?): Uri? = throw UnsupportedOperationException()
     override fun delete(uri: Uri, selection: String?, args: Array<out String>?): Int = throw UnsupportedOperationException()

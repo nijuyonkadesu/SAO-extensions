@@ -142,7 +142,7 @@ class ImmichAdapter(private val config: ImmichConfig, private val sourceId: Stri
         check(expectedSourceId == null || expectedSourceId == sourceId) { "Filter belongs to a different source" }
         client.api.places(level.name.lowercase(java.util.Locale.ROOT),country,state).filterNotNull().distinct().also { ImmichResponses.values(it) }
     }
-    fun mediaCall(id: String, kind: String, edited: Boolean) = client.mediaCall(id,kind,edited)
+    fun mediaCall(id: String, kind: String, edited: Boolean, offset: Long? = null, validator: String? = null) = client.mediaCall(id,kind,edited,offset,validator)
     fun reopenSequence(token: org.json.JSONObject): MediaSequence = ImmichMediaSequence(client.api, config.albumId,
         token.getString("anchor"), token.getInt("bucket"),
         SourceWire.strings(token.getJSONArray("buckets")).map { TimeBucket(it,0) }, dispatchers, ::mapAsset)
