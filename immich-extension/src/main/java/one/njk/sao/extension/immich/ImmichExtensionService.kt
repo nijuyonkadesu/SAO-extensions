@@ -57,7 +57,8 @@ class ImmichExtensionService : ExtensionService() {
                     val kind = when (requested) {
                         "preview" -> if (item.animated && !item.isVideo) "original" else "preview"
                         "raster" -> if (item.mimeType in setOf("image/png","image/webp")) "original" else "preview"
-                        "video", "original" -> "original"
+                        "video" -> if (item.isVideo) "video" else "original"
+                        "original" -> "original"
                         else -> throw ExtensionFailure("UNSUPPORTED")
                     }
                     requireNotNull(item.remote).let { resource(connection,kind,it.assetId,it.edited,caller) }

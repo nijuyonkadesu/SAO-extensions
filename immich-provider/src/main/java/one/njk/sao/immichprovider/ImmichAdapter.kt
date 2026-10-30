@@ -83,7 +83,7 @@ class ImmichAdapter(private val config: ImmichConfig, private val sourceId: Stri
             asset.tags.asSequence().take(20).map { ImmichResponses.label(it.value,80) }.toList(),
             asset.tags.asSequence().map { it.name }.filter(::isEmojiTag).take(20).map { ImmichResponses.label(it,80) }.toList(), motion,
             RemoteMedia(sourceId, asset.id, asset.isEdited && !motion, asset.createdAt, mapOf(
-                "original" to "original", "video" to "original",
+                "original" to "original", "video" to if (mime.startsWith("video/")) "encoded-playback-v1" else "original",
                 "preview" to if (motion && !mime.startsWith("video/")) "original" else "preview",
                 "raster" to if (mime in setOf("image/png","image/webp")) "original" else "preview")), filename = asset.originalFileName)
     }

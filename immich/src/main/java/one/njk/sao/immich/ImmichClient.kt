@@ -81,11 +81,12 @@ class ImmichClient(val connection: ImmichConnection, retryReadConnections: Boole
             "person" -> listOf("people",id,"thumbnail")
             "preview" -> listOf("assets",id,"thumbnail")
             "original" -> listOf("assets",id,"original")
+            "video" -> listOf("assets",id,"video","playback")
             else -> error("Unsupported media request")
         }
         val url = connection.apiUrl.newBuilder().apply {
             path.forEach { addPathSegment(it) }
-            if(kind != "person") addQueryParameter("edited",edited.toString())
+            if(kind == "preview" || kind == "original") addQueryParameter("edited",edited.toString())
             if(kind == "preview") addQueryParameter("size","preview")
         }.build()
         return http.newCall(Request.Builder().url(url).build())

@@ -29,6 +29,18 @@ class ImmichClientTest {
             try { ImmichConnection(url, "key"); fail("Invalid URL accepted") } catch (_: IllegalArgumentException) { }
         }
     }
+    @Test fun playbackUsesTheVideoEndpointWhileOriginalDownloadRemainsUnchanged() {
+        for (kind in listOf("video", "original")) {
+            server.enqueue(MockResponse().setBody("unchanged media bytes"))
+            client.mediaCall("asset-1", kind, false).execute().use { response ->
+                assertEquals("unchanged media bytes", response.body!!.string())
+            }
+            val request = server.takeRequest(2, TimeUnit.SECONDS)!!
+            assertEquals(if (kind == "video") "/photos/api/assets/asset-1/video/playback"
+                else "/photos/api/assets/asset-1/original?edited=false", request.path)
+            assertEquals("test-key", request.getHeader("x-api-key"))
+        }
+    }
     @Test fun metadataSearchPreservesEmojiUsesStructuredFiltersAndCursor() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"assets":{"items":[$asset],"nextCursor":"opaque-next"}}"""))
         val filter = SearchFilter(type = EnumFilter(eq = "IMAGE"), trashedAt = DateEqualityFilter(null), or = listOf(
